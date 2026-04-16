@@ -1,0 +1,356 @@
+"use client";
+
+import React, { createContext, useContext, useEffect, useMemo, useRef, useState, useCallback } from 'react';
+import { 
+  StudyItem, 
+  LearningStatus, 
+  StudyConfig, 
+  LearningMode, 
+  SlideDirection 
+} from '@/types/study';
+import { FsrsRating } from '@/lib/srs/fsrs';
+import { useSessionState, SessionAction } from '@/hooks/learn/useSessionState';
+import { useSessionUndo, UndoSnapshot } from '@/hooks/learn/useSessionUndo';
+import { useSessionSync } from '@/hooks/learn/useSessionSync';
+import { sessionPersistence } from '@/lib/services/sessionPersistence';
+import { studyService } from '@/lib/services/studyService';
+import { selectNextQueueItem } from '@/lib/services/queueManager';
+import { DEFAULT_LEARN_AHEAD_MINUTES, MANUAL_OVERRIDE_WINDOW_MS, RATING_DEBOUNCE_MS } from '@/lib/services/studyConstants';
+import { settingsService } from '@/lib/services/settingsService';
+
+interface StudySessionContextType {
+  mode: LearningMode;
+  state: ReturnType<typeof useSessionState>['state'];
+  currentItem: StudyItem | undefined;
+  canUndo: boolean;
+  isAutoAudioEnabled: boolean;
+  isShowAnswerDelayEnabled: boolean;
+  showAnswerDelayDuration: number;
+  initialTotalCount: number;
+  ratingIntervals: Record<number, string>;
+  
+  // Actions
+  showAnswer: () => void;
+  rate: (rating: FsrsRating) => Promise<void>;
+  undo: () => Promise<void>;
+  suspendCurrent: () => Promise<void>;
+  buryCurrent: () => Promise<void>;
+  resumeFromWaiting: () => void;
+  goToIndex: (index: number) => void;
+  toggleAutoAudio: (enabled: boolean) => void;
+  toggleShowAnswerDelay: (enabled: boolean) => void;
+  cycleDelayDuration: () => void;
+  hideUndoHint: () => void;
+  showUndoHint: boolean;
+  setSyncConflictItem: (name: string | null) => void;
+}
+
+const StudySessionContext = createContext<StudySessionContextType | null>(null);
+
+export const useStudySession = () => {
+  const context = useContext(StudySessionContext);
+  if (!context) throw new Error("useStudySession must be used within StudySessionProvider");
+  return context;
+};
+
+interface StudySessionProviderProps {
+  userId: string;
+  initialItems: StudyItem[];
+  config: StudyConfig;
+  mode: LearningMode;
+  children: React.ReactNode;
+}
+
+export function StudySessionProvider({ userId, initialItems, config, mode, children }: StudySessionProviderProps) {
+  // 1. Initial State Resolution (Restore from sessionStorage)
+  const savedSession = useMemo(() => sessionPersistence.loadSession('learn'), []);
+  const restoredPool = useMemo(() => {
+    if (!savedSession || initialItems.length === 0) return null;
+    const itemMap = new Map(initialItems.map((item) => [item.id, item]));
+    const steps = savedSession.steps ?? {};
+    const dueTimes = savedSession.dueTimes ?? {};
+
+    const restored = savedSession.ids
+      .map((id) => itemMap.get(id))
+      .filter((item): item is StudyItem => !!item)
+      .map((item) => ({
+        ...item,
+        step: Number.isFinite(steps[item.id]) ? steps[item.id] : item.step,
+        dueTime: Number.isFinite(dueTimes[item.id]) ? dueTimes[item.id] : item.dueTime
+      }));
+
+    return restored.length > 0 ? restored : null;
+  }, [savedSession, initialItems]);
+
+  const initialPool = restoredPool || initialItems;
+  const initialIndex = (restoredPool && savedSession) ? (savedSession.currentIndex < initialPool.length ? savedSession.currentIndex : 0) : 0;
+  const initialCompleted = savedSession?.completed ?? 0;
+  const initialWaiting = (restoredPool && savedSession?.waitingUntil && savedSession.waitingUntil > Date.now()) ? savedSession.waitingUntil : null;
+
+  // 2. Specialized Hooks
+  const { state, dispatch } = useSessionState(initialPool, initialIndex, initialCompleted, initialWaiting);
+  const { canUndo, pushSnapshot, performUndo, clearUndo, undoStack } = useSessionUndo(userId, savedSession?.undoStack as any[]);
+  const { performConsistencyCheck } = useSessionSync();
+
+  // 3. UI Settings State
+  const [isAutoAudioEnabled, setIsAutoAudioEnabled] = useState(!!config.isAutoAudioEnabled);
+  const [isShowAnswerDelayEnabled, setIsShowAnswerDelayEnabled] = useState(!!config.isShowAnswerDelayEnabled);
+  const [showAnswerDelayDuration, setShowAnswerDelayDuration] = useState(config.showAnswerDelayDuration || 5);
+  const [showUndoHint, setShowUndoHint] = useState(false);
+  const [manualResumedAt, setManualResumedAt] = useState(0);
+  
+  // Stable denominator for progress bar
+  const [initialTotalCount] = useState(initialPool.length + initialCompleted);
+
+  // 4. Persistence Helpers
+  const lockedDay = useMemo(() => studyService.getLearningDay(new Date(), config.resetHour || 4), [config.resetHour]);
+  const lastRatingTime = useRef(0);
+
+  const persist = useCallback((nextPool: StudyItem[], nextIndex: number, nextCompleted: number, nextWaiting: number | null) => {
+    const steps = Object.fromEntries(nextPool.map((item) => [item.id, item.step ?? 0]));
+    const dueTimes = Object.fromEntries(nextPool.map((item) => [item.id, item.dueTime ?? 0]));
+    
+    sessionPersistence.saveSession('learn', {
+      version: 3,
+      ids: nextPool.map((item) => item.id),
+      currentIndex: nextIndex,
+      completed: nextCompleted,
+      waitingUntil: nextWaiting,
+      steps,
+      dueTimes,
+      undoStack: undoStack as any[],
+      savedAt: Date.now()
+    });
+  }, [undoStack]);
+
+  const selectNext = useCallback((pool: StudyItem[], preferredIdx: number) => {
+    return selectNextQueueItem({
+      items: pool,
+      preferredIndex: preferredIdx,
+      learnAheadMs: (config.learnAheadLimit ?? DEFAULT_LEARN_AHEAD_MINUTES) * 60000,
+      now: Date.now(),
+      manualResumedAt,
+      manualOverrideWindowMs: MANUAL_OVERRIDE_WINDOW_MS,
+      manualOverrideIndex: state.currentIndex
+    });
+  }, [config.learnAheadLimit, manualResumedAt, state.currentIndex]);
+
+  // 5. Lifecycle: Consistency Check
+  useEffect(() => {
+    if (!restoredPool) return;
+    performConsistencyCheck(restoredPool).then(idsToKeep => {
+      if (idsToKeep.size < restoredPool.length) {
+        dispatch({ type: 'PRUNE_ITEMS', idsToKeep });
+      }
+    });
+  }, [restoredPool, performConsistencyCheck, dispatch]);
+
+  // 6. Lifecycle: Polling for Waiting
+  useEffect(() => {
+    if (state.status !== LearningStatus.Waiting || !state.waitingUntil) return;
+    const timer = setInterval(() => {
+      const waitLimit = (config.learnAheadLimit ?? DEFAULT_LEARN_AHEAD_MINUTES) * 60000;
+      if (Date.now() + waitLimit >= state.waitingUntil!) {
+        const result = selectNext(state.wordList, state.currentIndex);
+        if (result.type === 'NEXT') {
+          dispatch({ type: 'SET_WAITING', time: null });
+          dispatch({ type: 'GO_TO_INDEX', index: result.index });
+        }
+      }
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [state.status, state.waitingUntil, state.wordList, state.currentIndex, config.learnAheadLimit, selectNext, dispatch]);
+
+  // 7. Actions
+  const currentItem = state.wordList[state.currentIndex];
+  const ratingIntervals = useMemo(() => currentItem ? studyService.calculatePreviews(currentItem, config) : {}, [currentItem, config]);
+
+  const rate = useCallback(async (rating: FsrsRating) => {
+    if (!currentItem || state.status === LearningStatus.Processing) return;
+    if (Date.now() - lastRatingTime.current < RATING_DEBOUNCE_MS) return;
+    lastRatingTime.current = Date.now();
+
+    // Snapshot
+    pushSnapshot({
+      actionType: 'rate',
+      wordList: [...state.wordList],
+      currentIndex: state.currentIndex,
+      item: { ...currentItem },
+      lastRating: rating,
+      reviewLogItemType: currentItem.type,
+      reviewLogItemId: Number(currentItem.content.id),
+      completedThisSession: state.completedThisSession,
+      waitingUntil: state.waitingUntil,
+      previousProgress: structuredClone(currentItem.progress),
+      // Capture the locked learning day so undo rolls back stats on the correct
+      // day even if the user crosses midnight before pressing undo.
+      epochDay: lockedDay
+    });
+
+    dispatch({ type: 'SET_STATUS', status: LearningStatus.Processing });
+
+    try {
+      const actionRow = studyService.evaluateRatingAction(currentItem, rating, config);
+      const updatedProgress = await studyService.processReview(userId, { item: currentItem, rating }, config, lockedDay);
+
+      const isGraduated = actionRow.type === 'graduate' || actionRow.type === 'leech';
+      const nextPool = [...state.wordList];
+      const nextCompleted = isGraduated ? state.completedThisSession + 1 : state.completedThisSession;
+
+      if (isGraduated) {
+        nextPool.splice(state.currentIndex, 1);
+      } else {
+        const [movedItem] = nextPool.splice(state.currentIndex, 1);
+        nextPool.push({
+          ...movedItem,
+          step: actionRow.nextStep,
+          dueTime: Date.now() + actionRow.delayMins * 60000,
+          badge: (rating === FsrsRating.Again || updatedProgress.state === 1 || updatedProgress.state === 3) ? 'RELEARN' : movedItem.badge,
+          progress: updatedProgress
+        });
+      }
+
+      if (nextPool.length === 0) {
+        dispatch({ type: 'SET_STATUS', status: LearningStatus.SessionCompleted });
+        sessionPersistence.clearSession('learn');
+      } else {
+        const result = selectNext(nextPool, state.currentIndex);
+        const nextIdx = result.type === 'NEXT' ? (result.index >= nextPool.length ? 0 : result.index) : state.currentIndex;
+        const nextWaiting = result.type === 'WAIT' ? result.waitingUntil : null;
+
+        dispatch({
+          type: 'NEXT_CARD',
+          nextPool,
+          nextIndex: nextIdx,
+          isCompletion: isGraduated
+        });
+        
+        if (result.type === 'WAIT') dispatch({ type: 'SET_WAITING', time: nextWaiting });
+        
+        persist(nextPool, nextIdx, nextCompleted, nextWaiting);
+        setShowUndoHint(true);
+      }
+    } catch (e: any) {
+      console.error("[StudySession] Rate failed:", e);
+      if (e.message?.includes('STALE_DATA_CONFLICT')) {
+        const itemName = currentItem.type === 'word' ? (currentItem.content as any).japanese : (currentItem.content as any).title;
+        dispatch({ type: 'SET_SYNC_CONFLICT', itemName: itemName || 'card' });
+        const prunedPool = state.wordList.filter(i => i.id !== currentItem.id);
+        dispatch({ type: 'SET_POOL', pool: prunedPool, index: state.currentIndex >= prunedPool.length ? 0 : state.currentIndex, completed: state.completedThisSession, waitingUntil: state.waitingUntil });
+      } else {
+         dispatch({ type: 'SET_STATUS', status: LearningStatus.Learning });
+      }
+    }
+  }, [currentItem, state, config, userId, lockedDay, pushSnapshot, selectNext, persist, dispatch]);
+
+  const undo = useCallback(async () => {
+    if (!canUndo || state.status === LearningStatus.Processing) return;
+    dispatch({ type: 'SET_STATUS', status: LearningStatus.Processing });
+    try {
+      const snapshot = await performUndo(lockedDay);
+      if (snapshot) {
+        dispatch({
+          type: 'ROLLBACK',
+          wordList: snapshot.wordList,
+          currentIndex: snapshot.currentIndex,
+          completed: snapshot.completedThisSession,
+          waitingUntil: snapshot.waitingUntil
+        });
+        persist(snapshot.wordList, snapshot.currentIndex, snapshot.completedThisSession, snapshot.waitingUntil);
+      }
+    } catch (e) {
+      dispatch({ type: 'SET_STATUS', status: state.waitingUntil ? LearningStatus.Waiting : LearningStatus.Learning });
+    }
+  }, [canUndo, state.status, state.waitingUntil, performUndo, lockedDay, persist, dispatch]);
+
+  const suspendCurrent = useCallback(async () => {
+     if (!currentItem || state.status === LearningStatus.Processing) return;
+     dispatch({ type: 'SET_STATUS', status: LearningStatus.Processing });
+     try {
+       await studyService.suspendItem(currentItem.progress.id);
+       const nextPool = state.wordList.filter(i => i.id !== currentItem.id);
+       if (nextPool.length === 0) {
+          dispatch({ type: 'SET_STATUS', status: LearningStatus.SessionCompleted });
+          sessionPersistence.clearSession('learn');
+       } else {
+          const result = selectNext(nextPool, state.currentIndex);
+          const nextIdx = result.type === 'NEXT' ? (result.index >= nextPool.length ? 0 : result.index) : state.currentIndex;
+          const nextWaiting = result.type === 'WAIT' ? result.waitingUntil : null;
+
+          dispatch({ type: 'NEXT_CARD', nextPool, nextIndex: nextIdx, isCompletion: false });
+          
+          if (result.type === 'WAIT') dispatch({ type: 'SET_WAITING', time: nextWaiting });
+          
+          persist(nextPool, nextIdx, state.completedThisSession, nextWaiting);
+       }
+     } catch (e) {
+       dispatch({ type: 'SET_STATUS', status: LearningStatus.Learning });
+     }
+  }, [currentItem, state, selectNext, persist, dispatch]);
+
+  const buryCurrent = useCallback(async () => {
+     if (!currentItem || state.status === LearningStatus.Processing) return;
+     dispatch({ type: 'SET_STATUS', status: LearningStatus.Processing });
+     try {
+       await studyService.buryItem(currentItem.progress.id, lockedDay);
+       const nextPool = state.wordList.filter(i => i.id !== currentItem.id);
+       if (nextPool.length === 0) {
+          dispatch({ type: 'SET_STATUS', status: LearningStatus.SessionCompleted });
+          sessionPersistence.clearSession('learn');
+       } else {
+          const result = selectNext(nextPool, state.currentIndex);
+          const nextIdx = result.type === 'NEXT' ? (result.index >= nextPool.length ? 0 : result.index) : state.currentIndex;
+          const nextWaiting = result.type === 'WAIT' ? result.waitingUntil : null;
+
+          dispatch({ type: 'NEXT_CARD', nextPool, nextIndex: nextIdx, isCompletion: false });
+          
+          if (result.type === 'WAIT') dispatch({ type: 'SET_WAITING', time: nextWaiting });
+          
+          persist(nextPool, nextIdx, state.completedThisSession, nextWaiting);
+       }
+     } catch (e) {
+       dispatch({ type: 'SET_STATUS', status: LearningStatus.Learning });
+     }
+  }, [currentItem, state, lockedDay, selectNext, persist, dispatch]);
+
+  const value = {
+    mode,
+    state,
+    currentItem,
+    canUndo,
+    isAutoAudioEnabled,
+    isShowAnswerDelayEnabled,
+    showAnswerDelayDuration,
+    initialTotalCount,
+    ratingIntervals,
+    showAnswer: () => dispatch({ type: 'SHOW_ANSWER' }),
+    rate,
+    undo,
+    suspendCurrent,
+    buryCurrent,
+    resumeFromWaiting: () => {
+      setManualResumedAt(Date.now());
+      dispatch({ type: 'SET_WAITING', time: null });
+    },
+    goToIndex: (index: number) => dispatch({ type: 'GO_TO_INDEX', index }),
+    toggleAutoAudio: (e: boolean) => {
+      setIsAutoAudioEnabled(e);
+      settingsService.updateStudyConfig({ isAutoAudioEnabled: e });
+    },
+    toggleShowAnswerDelay: (e: boolean) => {
+      setIsShowAnswerDelayEnabled(e);
+      settingsService.updateStudyConfig({ isShowAnswerDelayEnabled: e });
+    },
+    cycleDelayDuration: () => {
+      const durations = [3, 5, 7, 10];
+      const next = durations[(durations.indexOf(showAnswerDelayDuration) + 1) % durations.length];
+      setShowAnswerDelayDuration(next);
+      settingsService.updateStudyConfig({ showAnswerDelayDuration: next });
+    },
+    hideUndoHint: () => setShowUndoHint(false),
+    showUndoHint,
+    setSyncConflictItem: (name: string | null) => dispatch({ type: 'SET_SYNC_CONFLICT', itemName: name })
+  };
+
+  return <StudySessionContext.Provider value={value}>{children}</StudySessionContext.Provider>;
+}

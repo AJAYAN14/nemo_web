@@ -1,0 +1,275 @@
+.container {
+  max-width: 600px; /* Standardize on compact width for minimalist feel */
+  margin: 0 auto;
+  padding: 24px 20px 120px;
+  min-height: 100vh;
+  background-color: var(--bg-base);
+}
+
+.hasBottomPadding {
+  padding-bottom: 120px !important;
+}
+
+/* --- Header --- */
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 32px;
+  padding: 0 4px;
+}
+
+.dateText {
+  font-size: 0.9rem;
+  font-weight: 800;
+  color: var(--muted);
+  letter-spacing: 0.5px;
+  margin-bottom: 2px;
+}
+
+.greeting {
+  font-size: 1.8rem;
+  font-weight: 900;
+  color: var(--foreground);
+  letter-spacing: -0.02em;
+}
+
+.avatar {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: white;
+  border: 1px solid rgba(0,0,0,0.06);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 900;
+  color: var(--primary-color);
+  font-size: 1.2rem;
+}
+
+/* --- Controls Section --- */
+.controlsBar {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  margin-bottom: 24px;
+}
+
+.levelPill {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: white;
+  padding: 10px 18px;
+  border-radius: 100px;
+  border: 1px solid rgba(0,0,0,0.08);
+  cursor: pointer;
+  transition: all 0.2s;
+  font-weight: 800;
+  font-size: 0.95rem;
+}
+
+.labelWord { color: var(--primary-color); }
+.labelGrammar { color: #10B981; }
+
+.levelChevron { opacity: 0.4; transition: rotate 0.2s; }
+.levelChevronOpen { transform: rotate(90deg); }
+
+.levelPopover {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  background: white;
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  padding: 10px;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  z-index: 1000;
+  width: 220px;
+  box-shadow: 0 15px 40px rgba(0,0,0,0.1);
+}
+
+.levelOption {
+  padding: 12px;
+  text-align: center;
+  font-weight: 800;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.levelOptionActive {
+  background: rgba(79, 70, 229, 0.08);
+  color: var(--primary-color);
+}
+
+.modeSwitch {
+  display: flex;
+  background: #f1f5f9;
+  padding: 4px;
+  border-radius: 100px;
+  flex: 1;
+}
+
+.modeSwitch button {
+  flex: 1;
+  padding: 10px;
+  border-radius: 100px;
+  font-weight: 800;
+  font-size: 0.9rem;
+  color: var(--muted);
+  transition: all 0.2s;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+}
+
+.modeActiveWord { background: white !important; color: var(--primary-color) !important; box-shadow: 0 2px 8px rgba(0,0,0,0.04); }
+.modeActiveGrammar { background: white !important; color: #10B981 !important; box-shadow: 0 2px 8px rgba(0,0,0,0.04); }
+
+/* --- Hero Progress --- */
+.heroCard {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-bottom: 20px;
+  border: none !important; /* Managed by parent ClayCard */
+}
+
+.heroLabel {
+  font-size: 0.9rem;
+  font-weight: 800;
+  color: var(--muted);
+  margin-bottom: 24px;
+}
+
+.ringWrapper {
+  margin-bottom: 32px;
+}
+
+.ringValue {
+  font-size: 2.8rem;
+  font-weight: 900;
+  color: var(--foreground);
+}
+
+.heroGoalText {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--muted);
+}
+
+/* --- Main Action Area --- */
+.actionArea {
+  margin-bottom: 32px;
+}
+
+.mainActionBtn {
+  width: 100%;
+  height: 68px;
+  border-radius: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  color: white;
+  font-size: 1.25rem;
+  font-weight: 900;
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.mainActionBtn:active { transform: scale(0.97); }
+
+.bgWord { background-color: var(--primary-color); }
+.bgGrammar { background-color: #10B981; }
+
+.secondaryStats {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.miniStatCard {
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.miniStatLabel { font-size: 0.75rem; font-weight: 800; color: var(--muted); }
+.miniStatValue { font-size: 1.2rem; font-weight: 900; color: var(--foreground); }
+
+/* --- Resource List (Linear) --- */
+.sectionTitle {
+  font-size: 0.9rem;
+  font-weight: 800;
+  color: var(--muted);
+  margin: 0 0 12px 8px;
+  text-transform: uppercase;
+  letter-spacing: 1.1px;
+}
+
+.resourceList {
+  background: white;
+  border-radius: 24px;
+  border: 1px solid rgba(0,0,0,0.08); /* Minimalist flat border */
+  overflow: hidden;
+}
+
+.resourceItem {
+  display: flex;
+  align-items: center;
+  padding: 18px 24px;
+  gap: 16px;
+  cursor: pointer;
+  transition: background 0.2s;
+  border-bottom: 1px solid #F3F4F6;
+}
+
+.resourceItem:last-child { border-bottom: none; }
+.resourceItem:hover { background: #F9FAFB; }
+
+.resIcon {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.resInfo {
+  display: flex;
+  flex-direction: column;
+}
+
+.resTitle { font-size: 1.05rem; font-weight: 800; color: var(--foreground); }
+.resSubtitle { font-size: 0.85rem; font-weight: 500; color: var(--muted); }
+.resArrow { margin-left: auto; color: var(--muted); opacity: 0.3; }
+
+/* --- Mobile --- */
+@media (max-width: 600px) {
+  .greeting { font-size: 1.5rem; }
+  .heroCard { padding: 32px 24px; }
+  .ringValue { font-size: 2.4rem; }
+}
+
+/* --- Loading --- */
+.loadingScreen {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1.5rem;
+  background-color: var(--bg-base);
+}
+
+.loadingText { font-weight: 800; color: var(--muted); font-size: 1.1rem; }

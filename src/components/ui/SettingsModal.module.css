@@ -1,0 +1,344 @@
+.overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 1rem;
+}
+
+.modal {
+  background: white;
+  border-radius: var(--radius-lg);
+  width: 95%;
+  max-width: 500px;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  animation: slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  border: 1px solid var(--border);
+}
+
+@media (min-width: 640px) {
+  .modal {
+    width: 100%;
+  }
+}
+
+.header {
+  padding: 1.25rem 1.5rem;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+@media (min-width: 640px) {
+  .header {
+    padding: 1.5rem 2rem;
+  }
+}
+
+.title {
+  font-size: 1.125rem;
+  font-weight: 700;
+  color: var(--foreground);
+  font-family: var(--font-outfit), sans-serif;
+}
+
+@media (min-width: 640px) {
+  .title {
+    font-size: 1.25rem;
+  }
+}
+
+.closeBtn {
+  background: none;
+  border: none;
+  font-size: 1.5rem;
+  color: var(--muted);
+  cursor: pointer;
+  padding: 0.5rem;
+  line-height: 1;
+  transition: color 0.2s;
+}
+
+.closeBtn:hover {
+  color: var(--foreground);
+}
+
+.scrollArea {
+  flex: 1;
+  overflow-y: auto;
+  padding: 1.25rem;
+}
+
+@media (min-width: 640px) {
+  .scrollArea {
+    padding: 2rem;
+  }
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.section {
+  margin-bottom: 2rem;
+}
+
+.sectionTitle {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--muted);
+  margin-bottom: 1rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.optionsGrid {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.levelGrid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0.5rem;
+}
+
+@media (min-width: 400px) {
+  .levelGrid {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0.75rem;
+  }
+}
+
+.radioLabel {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.875rem;
+  color: var(--foreground);
+  cursor: pointer;
+  padding: 0.6rem;
+  border-radius: var(--radius-md);
+  background: var(--background);
+  border: 1px solid transparent;
+  transition: all 0.2s;
+}
+
+@media (min-width: 640px) {
+  .radioLabel {
+    gap: 0.75rem;
+    font-size: 0.95rem;
+    padding: 0.75rem;
+  }
+}
+
+.radioLabel:hover {
+  border-color: var(--border);
+}
+
+.radioLabel input[type="radio"]:checked + span,
+.radioLabel:has(input[type="radio"]:checked) {
+  border-color: var(--primary-color);
+  background: white;
+}
+
+.radioLabel input[type="radio"] {
+  accent-color: var(--primary-color);
+  width: 1.1rem;
+  height: 1.1rem;
+}
+
+.advancedHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem;
+  background: var(--background);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  margin-top: 2rem;
+  transition: background 0.2s;
+}
+
+.advancedHeader:hover {
+  background: #f1f5f9;
+}
+
+.advancedHeader .sectionTitle {
+  margin-bottom: 0;
+}
+
+.arrow {
+  color: var(--muted);
+  font-size: 0.8rem;
+  transition: transform 0.2s;
+}
+
+.arrow.expanded {
+  transform: rotate(180deg);
+}
+
+.advancedSection {
+  padding: 1.5rem 1rem;
+  border: 1px solid var(--border);
+  border-top: none;
+  border-bottom-left-radius: var(--radius-md);
+  border-bottom-right-radius: var(--radius-md);
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.inputGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.inputGroup label {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--foreground);
+}
+
+.textInput, .selectInput {
+  padding: 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  font-size: 0.95rem;
+  font-family: inherit;
+  width: 100%;
+  background: white;
+}
+
+.textInput:focus, .selectInput:focus {
+  outline: none;
+  border-color: var(--primary-color);
+}
+
+.inputDesc {
+  font-size: 0.75rem;
+  color: var(--muted);
+  line-height: 1.4;
+}
+
+.inputRow {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1rem;
+}
+
+@media (min-width: 400px) {
+  .inputRow {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+.footer {
+  padding: 1.25rem;
+  border-top: 1px solid var(--border);
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.75rem;
+}
+
+@media (min-width: 640px) {
+  .footer {
+    padding: 1.5rem 2rem;
+    gap: 1rem;
+  }
+}
+
+.checkboxContainer {
+  display: flex;
+  align-items: center; /* Changed from flex-start to center */
+  justify-content: space-between; /* Space between text and toggle */
+  gap: 1rem;
+  padding: 1.25rem;
+  background: white;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: all 0.2s;
+  border: 1px solid var(--border);
+}
+
+.checkboxContainer:hover {
+  border-color: var(--primary-color);
+  background: var(--background);
+}
+
+/* --- Gooey Toggle Logic --- */
+.gooeyToggle {
+  width: 56px;
+  height: 32px;
+  background-color: #e5e7eb;
+  border-radius: 100px;
+  position: relative;
+  transition: background-color 0.4s;
+  flex-shrink: 0;
+}
+
+.gooeyToggleActive {
+  background-color: #3b82f6; /* Restored to vibrant blue per snippet */
+}
+
+.thumb {
+  width: 24px;
+  height: 24px;
+  background: white;
+  border-radius: 12px;
+  position: absolute;
+  top: 4px;
+  left: 4px;
+  /* NO shadows as per Minimalist Flat rule */
+  border: 1px solid rgba(0,0,0,0.05);
+  animation: stretchOff 0.4s forwards;
+}
+
+.gooeyToggleActive .thumb {
+  animation: stretchOn 0.4s forwards;
+}
+
+@keyframes stretchOn { 
+  0% { transform: translateX(0); width: 24px; } 
+  50% { width: 42px; transform: translateX(4px); border-radius: 12px; } 
+  100% { transform: translateX(24px); width: 24px; } 
+}
+
+@keyframes stretchOff { 
+  0% { transform: translateX(24px); width: 24px; } 
+  50% { width: 42px; transform: translateX(8px); border-radius: 12px; } 
+  100% { transform: translateX(0); width: 24px; } 
+}
+
+.checkboxLabel {
+  display: flex;
+  flex-direction: column;
+}
+
+.checkboxLabel strong {
+  font-size: 0.95rem;
+  color: var(--foreground);
+}
+
+.checkboxLabel small {
+  font-size: 0.8rem;
+  color: var(--muted);
+}

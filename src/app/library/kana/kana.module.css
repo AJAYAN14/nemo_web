@@ -1,0 +1,237 @@
+.container {
+  min-height: 100vh;
+  background-color: #F9FAFB;
+  padding-bottom: 5rem;
+}
+
+.header {
+  height: 64px;
+  display: flex;
+  align-items: center;
+  padding: 0 1.5rem;
+  background: #F9FAFB;
+  position: sticky;
+  top: 0;
+  z-index: 20;
+}
+
+.headerInner {
+  width: 100%;
+  max-width: 600px;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+}
+
+.backBtn {
+  width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 12px;
+  border: 1px solid #E5E7EB;
+  background: white;
+  cursor: pointer;
+  color: var(--foreground);
+  transition: all 0.2s;
+}
+
+.title {
+  flex: 1;
+  font-size: 1.25rem;
+  font-weight: 800;
+  color: var(--foreground);
+  text-align: center;
+  margin-right: 44px;
+  letter-spacing: -0.02em;
+}
+
+/* Sticky Controls Section */
+.controlsWrapper {
+  position: sticky;
+  top: 64px;
+  z-index: 10;
+  background: #F9FAFB;
+  padding-bottom: 0.5rem;
+}
+
+.controlsInner {
+  max-width: 600px;
+  margin: 0 auto;
+  padding: 0.5rem 1.25rem;
+}
+
+/* Pill Tabs */
+.tabContainer {
+  background: rgba(0, 0, 0, 0.04);
+  padding: 4px;
+  border-radius: 24px;
+  display: flex;
+  gap: 4px;
+  margin-bottom: 1rem;
+}
+
+.pillTab {
+  flex: 1;
+  height: 40px;
+  border-radius: 20px;
+  border: none;
+  background: transparent;
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: var(--muted);
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.pillActive {
+  background: white;
+  color: var(--foreground);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+
+/* Quick Nav */
+.quickNav {
+  display: flex;
+  gap: 10px;
+  overflow-x: auto;
+  padding-bottom: 4px;
+  scrollbar-width: none; /* Hide scrollbar Firefox */
+}
+
+.quickNav::-webkit-scrollbar {
+  display: none; /* Hide scrollbar Chrome/Safari */
+}
+
+.navChip {
+  padding: 8px 16px;
+  border-radius: 20px;
+  background: white;
+  border: 1px solid #E5E7EB;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--muted);
+  white-space: nowrap;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.navChipActive {
+  background: rgba(79, 70, 229, 0.1);
+  color: var(--primary);
+  border-color: var(--primary);
+}
+
+/* Content Area */
+.content {
+  max-width: 600px;
+  margin: 0 auto;
+  padding: 0.5rem 1.25rem;
+}
+
+.section {
+  margin-bottom: 2rem;
+  scroll-margin-top: 180px; /* Offset for sticky header/nav */
+}
+
+.sectionTitleRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+  padding-top: 8px;
+}
+
+.sectionIndicator {
+  width: 8px;
+  height: 18px;
+  border-radius: 4px;
+  background: var(--primary);
+}
+
+.sectionTitle {
+  font-size: 1rem;
+  font-weight: 800;
+  color: var(--foreground);
+}
+
+.sectionSubtitle {
+  font-size: 0.8rem;
+  color: var(--muted);
+  margin-bottom: 12px;
+  display: block;
+}
+
+/* Grid Layouts - Fixed uniform sizing */
+.grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.columns5 > div, .columns3 > div, .columns4 > div {
+  flex: none;
+  width: calc((100% - 48px) / 5); /* Base size on 5 columns */
+  min-width: 64px;
+}
+
+/* Kana Card */
+.card {
+  aspect-ratio: 1;
+  width: 100%;
+  background: white;
+  border-radius: 18px;
+  border: 1px solid #E5E7EB;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  gap: 2px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.02);
+}
+
+.card:hover {
+  transform: translateY(-2px);
+  border-color: var(--primary);
+  background: rgba(79, 70, 229, 0.02);
+}
+
+.card:active {
+  transform: scale(0.94);
+}
+
+.cardPlaying {
+  border-color: var(--primary) !important;
+  background: rgba(79, 70, 229, 0.05) !important;
+}
+
+.kanaMajor {
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: var(--foreground);
+}
+
+.kanaMajorSmall {
+  font-size: 1.1rem;
+}
+
+.romaji {
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: var(--muted);
+  opacity: 0.8;
+}
+
+/* Flash Animation for Section Jump */
+.flash {
+  animation: flashEffect 0.6s ease;
+}
+
+@keyframes flashEffect {
+  0% { background-color: transparent; }
+  30% { background-color: rgba(79, 70, 229, 0.15); }
+  100% { background-color: transparent; }
+}

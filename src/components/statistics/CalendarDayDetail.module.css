@@ -1,0 +1,97 @@
+.card {
+  background: #ffffff;
+  border-radius: 26px;
+  border: 0.5px solid rgba(0, 0, 0, 0.05);
+  box-shadow: 0 10px 40px -10px rgba(0, 0, 0, 0.04);
+  padding: 20px;
+  width: 100%;
+}
+
+.list {
+  display: flex;
+  flex-direction: column;
+}
+
+.itemWrapper {
+  display: flex;
+  flex-direction: column;
+}
+
+.item {
+  display: flex;
+  align-items: center;
+  padding: 8px 0;
+}
+
+.iconBox {
+  width: 42px;
+  height: 42px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-right: 16px;
+  flex-shrink: 0;
+}
+
+.content {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+}
+
+.itemLabel {
+  font-size: 16px;
+  font-weight: 500;
+  color: #1e293b;
+}
+
+.itemValue {
+  font-size: 16px;
+  font-weight: 800;
+  color: #1e293b;
+  margin-left: auto;
+}
+
+/* 1:1 Colors from Android */
+.orange { background-color: rgba(255, 149, 0, 0.1); color: #FF9500; }
+.primary { background-color: rgba(14, 104, 255, 0.1); color: #0E68FF; }
+.secondary { background-color: rgba(76, 175, 80, 0.1); color: #4CAF50; }
+
+.divider {
+  height: 0.5px;
+  background-color: rgba(0, 0, 0, 0.05);
+  margin-left: 58px; /* Offset to align with content after icon */
+}
+
+/* Empty State */
+.emptyState {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 24px 0;
+}
+
+.emptyIcon {
+  color: #e2e8f0;
+  margin-bottom: 12px;
+}
+
+.emptyText {
+  font-size: 14px;
+  color: #64748b;
+  font-weight: 500;
+}
+
+/* Skeleton */
+.skeleton {
+  height: 200px;
+  background-color: #f1f5f9;
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: .5; }
+}
