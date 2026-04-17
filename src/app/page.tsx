@@ -168,6 +168,9 @@ export default function Home() {
   const progressPercent = isWordMode ? stats.wordGoalProgress : stats.grammarGoalProgress;
   const reviewedToday = isWordMode ? stats.todayReviewedWords : stats.todayReviewedGrammars;
   const itemsDue = isWordMode ? stats.dueWords : stats.dueGrammars;
+  const dueNew = isWordMode ? stats.dueNewWords : stats.dueNewGrammars;
+  const dueLearn = isWordMode ? stats.dueLearningWords : stats.dueLearningGrammars;
+  const dueReview = isWordMode ? stats.dueReviewWords : stats.dueReviewGrammars;
   
   const hasActiveSession = itemsDue > 0;
 
@@ -256,16 +259,32 @@ export default function Home() {
           <ArrowRight size={20} />
         </button>
 
+        {/* 📊 Three-Color Task Board (Anki Style) */}
+        <div className={styles.taskBoard}>
+          <div className={styles.taskItem}>
+            <span className={clsx(styles.taskCount, styles.textNew)}>{dueNew}</span>
+            <span className={styles.taskLabel}>新词</span>
+          </div>
+          <div className={styles.taskItem}>
+            <span className={clsx(styles.taskCount, styles.textLearn)}>{dueLearn}</span>
+            <span className={styles.taskLabel}>学习</span>
+          </div>
+          <div className={styles.taskItem}>
+            <span className={clsx(styles.taskCount, styles.textReview)}>{dueReview}</span>
+            <span className={styles.taskLabel}>复习</span>
+          </div>
+        </div>
+
         <div className={styles.secondaryStats}>
           <ClayCard padding="none" interactive onClick={() => router.push('/review/prep')}>
             <div className={styles.miniStatCard}>
-              <span className={styles.miniStatLabel}>今日复习</span>
+              <span className={styles.miniStatLabel}>今日已复习</span>
               <span className={styles.miniStatValue}>{reviewedToday}</span>
             </div>
           </ClayCard>
           <ClayCard padding="none">
             <div className={styles.miniStatCard}>
-              <span className={styles.miniStatLabel}>待复习</span>
+              <span className={styles.miniStatLabel}>待复习总数</span>
               <span className={styles.miniStatValue}>{itemsDue}</span>
             </div>
           </ClayCard>

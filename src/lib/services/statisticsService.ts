@@ -468,7 +468,11 @@ export const statisticsService = {
       if (!word) return;
 
       const progress = progressMap.get(`word-${id}`);
-      const isLearned = progress && new Date(progress.created_at) >= startOfToday;
+      // ALIGNMENT: Only show items that have graduated (State 2 or -1).
+      // This prevents "Touched but not finished" items from appearing.
+      if (!progress || (progress.state !== 2 && progress.state !== -1)) return;
+
+      const isLearned = new Date(progress.created_at) >= startOfToday;
 
       const item: DetailedItem = {
         id: word.id,
@@ -489,7 +493,10 @@ export const statisticsService = {
       if (!grammar) return;
 
       const progress = progressMap.get(`grammar-${id}`);
-      const isLearned = progress && new Date(progress.created_at) >= startOfToday;
+      // ALIGNMENT: Only show items that have graduated (State 2 or -1).
+      if (!progress || (progress.state !== 2 && progress.state !== -1)) return;
+
+      const isLearned = new Date(progress.created_at) >= startOfToday;
 
       const item: DetailedItem = {
         id: grammar.id,
@@ -608,7 +615,7 @@ export const statisticsService = {
       .select('item_id, item_type, created_at, level')
       .eq('user_id', userId)
       .gt('reps', 0)
-      .neq('state', -1)
+      .eq('state', 2)
       .order('created_at', { ascending: false });
 
     if (progressError) throw progressError;
