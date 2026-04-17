@@ -3,6 +3,8 @@ import { StudyConfig } from '@/types/study';
 const DEFAULT_CONFIG: StudyConfig = {
   mode: 'WORDS_ONLY',
   level: 'N5',
+  wordLevel: 'N5',
+  grammarLevel: 'N5',
   dailyGoal: 20,
   grammarDailyGoal: 5,
   isRandom: true,
@@ -24,7 +26,20 @@ export const settingsService = {
     if (stored) {
       try {
         const parsed = JSON.parse(stored);
-        const config = { ...DEFAULT_CONFIG, ...parsed };
+        
+        // Use wordLevel/grammarLevel from storage, or fallback to 'level' OR DEFAULT
+        const initialWordLevel = parsed.wordLevel || parsed.level || DEFAULT_CONFIG.wordLevel;
+        const initialGrammarLevel = parsed.grammarLevel || parsed.level || DEFAULT_CONFIG.grammarLevel;
+
+        const config = { 
+          ...DEFAULT_CONFIG, 
+          ...parsed,
+          wordLevel: initialWordLevel,
+          grammarLevel: initialGrammarLevel
+        };
+
+        // Sync effective level based on active mode
+        config.level = config.mode === 'GRAMMAR_ONLY' ? config.grammarLevel : config.wordLevel;
 
         // Data Migration: Map legacy 'limit' names to new 'goal' names
         if (parsed.wordLimit !== undefined && parsed.dailyGoal === undefined) {

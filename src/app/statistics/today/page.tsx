@@ -1,66 +1,55 @@
-"use client";
+﻿"use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
-import { supabase } from "@/lib/supabase";
-import { 
-  ChevronLeft, 
-  ChevronDown, 
-  ChevronUp, 
-  Inbox,
-  LineChart 
-} from "lucide-react";
+import { ChevronLeft, ChevronDown, ChevronUp, Inbox } from "lucide-react";
 import clsx from "clsx";
-import styles from "./today.module.css";
+import { supabase } from "@/lib/supabase";
 import { statisticsService } from "@/lib/services/statisticsService";
 import { SakuraLoader } from "@/components/common/SakuraLoader";
 import { DetailedItem } from "@/types/study";
+import styles from "./today.module.css";
 
-const AVATAR_COLORS = [
-  '#3b82f6', // Blue
-  '#f59e0b', // Orange
-  '#10b981', // Green
-  '#6366f1', // Indigo
-  '#14b8a6', // Teal
-  '#8b5cf6', // Purple
-  '#ec4899', // Pink
-  '#06b6d4'  // Cyan
-];
+const AVATAR_COLORS = ["#3b82f6", "#f59e0b", "#10b981", "#6366f1", "#14b8a6", "#8b5cf6", "#ec4899", "#06b6d4"];
+
+function getStoredResetHour(): number {
+  if (typeof window === "undefined") return 4;
+  try {
+    const stored = localStorage.getItem("nemo_study_settings");
+    if (!stored) return 4;
+    const parsed = JSON.parse(stored) as { resetHour?: number };
+    return typeof parsed.resetHour === "number" ? parsed.resetHour : 4;
+  } catch {
+    return 4;
+  }
+}
 
 export default function TodayStatisticsPage() {
   const router = useRouter();
-  const [resetHour, setResetHour] = useState(4);
-
-  useEffect(() => {
-    const stored = localStorage.getItem('nemo_study_settings');
-    if (stored) {
-      try {
-        const config = JSON.parse(stored);
-        if (config.resetHour !== undefined) setResetHour(config.resetHour);
-      } catch { }
-    }
-  }, []);
+  const [resetHour] = useState<number>(() => getStoredResetHour());
 
   const { data: user } = useQuery({
     queryKey: ["current-user"],
     queryFn: async () => {
-      const { data: { user } } = await supabase.auth.getUser();
+      const {
+        data: { user }
+      } = await supabase.auth.getUser();
       return user;
     }
   });
 
   const { data: stats, isLoading } = useQuery({
-    queryKey: ["today-detailed-stats", user?.id],
+    queryKey: ["today-detailed-stats", user?.id, resetHour],
     queryFn: () => statisticsService.getTodayDetailedStats(user!.id, resetHour),
-    enabled: !!user,
+    enabled: !!user
   });
 
   if (!user || isLoading) {
     return (
       <div className={styles.loadingScreen}>
         <SakuraLoader />
-        <p className={styles.loadingText}>统计今日成果中...</p>
+        <p className={styles.loadingText}>正在统计今日学习明细...</p>
       </div>
     );
   }
@@ -79,18 +68,17 @@ export default function TodayStatisticsPage() {
       </header>
 
       <div className={styles.scrollContent}>
-        {/* Sections: Words and Grammars */}
-        <StatisticsSection 
-          title={`单词 (${allWords.length})`}
+        <StatisticsSection
+          title={`单词（${allWords.length}）`}
           items={allWords}
-          emptyMessage="今日还没有学习任何单词"
+          emptyMessage="今日还没有单词学习记录"
           onItemClick={(id) => router.push(`/library/word/${id}`)}
         />
 
-        <StatisticsSection 
-          title={`语法 (${allGrammars.length})`}
+        <StatisticsSection
+          title={`语法（${allGrammars.length}）`}
           items={allGrammars}
-          emptyMessage="今日还没有学习任何语法"
+          emptyMessage="今日还没有语法学习记录"
           onItemClick={(id) => router.push(`/library/grammar/${id}`)}
         />
       </div>
@@ -98,7 +86,12 @@ export default function TodayStatisticsPage() {
   );
 }
 
-function StatisticsSection({ title, items, emptyMessage, onItemClick }: {
+function StatisticsSection({
+  title,
+  items,
+  emptyMessage,
+  onItemClick
+}: {
   title: string;
   items: DetailedItem[];
   emptyMessage: string;
@@ -107,15 +100,14 @@ function StatisticsSection({ title, items, emptyMessage, onItemClick }: {
   const DEFAULT_SHOW_COUNT = 5;
   const [isExpanded, setIsExpanded] = useState(false);
 
-  // Android Logic: If count <= default + 1, show all to avoid "expand for 1 item"
   const shouldCollapse = items.length > DEFAULT_SHOW_COUNT + 1;
-  const displayItems = (!shouldCollapse || isExpanded) ? items : items.slice(0, DEFAULT_SHOW_COUNT);
+  const displayItems = !shouldCollapse || isExpanded ? items : items.slice(0, DEFAULT_SHOW_COUNT);
   const remainingCount = items.length - DEFAULT_SHOW_COUNT;
 
   return (
     <section className={styles.section}>
       <h2 className={styles.sectionTitle}>{title}</h2>
-      
+
       <div className={styles.card}>
         {items.length === 0 ? (
           <div className={styles.emptyState}>
@@ -126,40 +118,37 @@ function StatisticsSection({ title, items, emptyMessage, onItemClick }: {
           <div className={styles.list}>
             {displayItems.map((item, index) => (
               <div key={item.id}>
-                <div 
-                  className={styles.itemRow} 
-                  onClick={() => onItemClick(String(item.id))}
-                >
-                  <div 
+                <div className={styles.itemRow} onClick={() => onItemClick(String(item.id))}>
+                  <div
                     className={styles.avatar}
-                    style={{ 
+                    style={{
                       backgroundColor: `${AVATAR_COLORS[index % AVATAR_COLORS.length]}1A`,
                       color: AVATAR_COLORS[index % AVATAR_COLORS.length]
                     }}
                   >
-                    {item.japanese[0] || '?'}
+                    {item.japanese[0] || "?"}
                   </div>
 
                   <div className={styles.itemContent}>
                     <div className={styles.itemHeader}>
-                      <span className={clsx(
-                        styles.badge, 
-                        item.source === 'LEARNED' ? styles.learnedBadge : styles.reviewedBadge
-                      )}>
-                        {item.source === 'LEARNED' ? '新学' : '复习'}
+                      <span
+                        className={clsx(
+                          styles.badge,
+                          item.source === "LEARNED" ? styles.learnedBadge : styles.reviewedBadge
+                        )}
+                      >
+                        {item.source === "LEARNED" ? "新学" : "复习"}
                       </span>
-                      
+
                       <span className={styles.japaneseText}>{item.japanese}</span>
-                      
-                      {item.level && (
-                        <span className={clsx(styles.badge, styles.levelBadge)}>
-                          {item.level}
-                        </span>
-                      )}
+
+                      {item.level && <span className={clsx(styles.badge, styles.levelBadge)}>{item.level}</span>}
                     </div>
 
                     <div className={styles.secondaryText}>
-                      {item.hiragana}{item.hiragana && item.chinese && ' · '}{item.chinese}
+                      {item.hiragana}
+                      {item.hiragana && item.chinese && " · "}
+                      {item.chinese}
                     </div>
                   </div>
                 </div>
@@ -168,11 +157,8 @@ function StatisticsSection({ title, items, emptyMessage, onItemClick }: {
             ))}
 
             {shouldCollapse && (
-              <button 
-                className={styles.expandBtn}
-                onClick={() => setIsExpanded(!isExpanded)}
-              >
-                {isExpanded ? "收起" : `展开查看剩余 ${remainingCount} 项`}
+              <button className={styles.expandBtn} onClick={() => setIsExpanded(!isExpanded)}>
+                {isExpanded ? "收起" : `展开剩余 ${remainingCount} 项`}
                 {isExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
               </button>
             )}
@@ -182,3 +168,4 @@ function StatisticsSection({ title, items, emptyMessage, onItemClick }: {
     </section>
   );
 }
+

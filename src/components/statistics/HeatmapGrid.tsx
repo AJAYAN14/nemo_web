@@ -113,7 +113,7 @@ export function HeatmapGrid({ data, isLoading }: HeatmapGridProps) {
                       styles.dayCell,
                       day && styles[`level${day.level}`]
                     )}
-                    title={day ? `${new Date(day.date * 86400000).toLocaleDateString()}: ${day.count} items` : undefined}
+                    title={day ? `${new Date(day.date * 86400000).toLocaleDateString()}: ${day.count} 项` : undefined}
                   />
                 ))}
               </div>
@@ -123,13 +123,13 @@ export function HeatmapGrid({ data, isLoading }: HeatmapGridProps) {
       </div>
 
       <div className={styles.legend}>
-        <span className={styles.legendText}>Less</span>
+        <span className={styles.legendText}>少</span>
         <div className={clsx(styles.dayCell, styles.level0)} />
         <div className={clsx(styles.dayCell, styles.level1)} />
         <div className={clsx(styles.dayCell, styles.level2)} />
         <div className={clsx(styles.dayCell, styles.level3)} />
         <div className={clsx(styles.dayCell, styles.level4)} />
-        <span className={styles.legendText}>More</span>
+        <span className={styles.legendText}>多</span>
       </div>
     </div>
   );

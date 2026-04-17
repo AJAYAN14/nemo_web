@@ -40,6 +40,18 @@ const D_MIN = 1;
 const D_MAX = 10;
 const MAX_INTERVAL = 36500;
 
+interface FuzzRange {
+  start: number;
+  end: number;
+  factor: number;
+}
+
+const FUZZ_RANGES: FuzzRange[] = [
+  { start: 2.5, end: 7.0, factor: 0.15 },
+  { start: 7.0, end: 20.0, factor: 0.1 },
+  { start: 20.0, end: Number.POSITIVE_INFINITY, factor: 0.05 }
+];
+
 export class FsrsAlgorithm {
   private w: number[];
   private targetRetention: number;
@@ -181,30 +193,50 @@ export class FsrsAlgorithm {
     return Math.max(1, Math.min(MAX_INTERVAL, Math.round(raw)));
   }
 
+  private fuzzDelta(interval: number): number {
+    if (interval < 2.5) {
+      return 0;
+    }
+
+    return FUZZ_RANGES.reduce((delta, range) => {
+      const inRange = Math.max(0, Math.min(interval, range.end) - range.start);
+      return delta + range.factor * inRange;
+    }, 1.0);
+  }
+
+  private constrainedFuzzBounds(interval: number, minimum: number, maximum: number): [number, number] {
+    const minBound = Math.min(minimum, maximum);
+    const clampedInterval = Math.max(minBound, Math.min(maximum, interval));
+    const delta = this.fuzzDelta(clampedInterval);
+
+    let lower = Math.round(clampedInterval - delta);
+    let upper = Math.round(clampedInterval + delta);
+
+    lower = Math.max(minBound, Math.min(maximum, lower));
+    upper = Math.max(minBound, Math.min(maximum, upper));
+
+    if (upper === lower && upper > 2 && upper < maximum) {
+      upper = lower + 1;
+    }
+
+    return [lower, upper];
+  }
+
+  private fuzzFactorFromSeed(seed: number): number {
+    // Deterministic PRNG that maps a 32-bit seed to [0, 1).
+    let t = (seed >>> 0) + 0x6D2B79F5;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  }
+
   /**
-   * Determinstic Fuzz to prevent review pileups.
-   * Matches Android's fuzzing strategy for FSRS 6.
+   * Deterministic fuzzing with Anki-compatible interval bounds.
    */
   public nextIntervalDaysWithFuzz(stability: number, seed: number): number {
-    const baseInterval = this.nextIntervalDays(stability);
-    if (baseInterval < 3) return baseInterval;
-
-    let span = 1;
-    if (baseInterval < 7) span = 1;
-    else if (baseInterval < 30) span = Math.max(1, Math.round(baseInterval * 0.08));
-    else if (baseInterval < 90) span = Math.max(2, Math.round(baseInterval * 0.12));
-    else span = Math.max(4, Math.round(baseInterval * 0.15));
-
-    // Improved LCG-based deterministic pseudo-random
-    // Uses a variation of Park-Miller for better distribution
-    const salt = (baseInterval * 1103515245 + 12345) & 0x7fffffff;
-    const finalSeed = (seed ^ salt) >>> 0;
-    
-    // High-quality deterministic random using a simple LCG
-    const nextRandom = (finalSeed * 1664525 + 1013904223) >>> 0;
-    const pseudoRandom = nextRandom % (span * 2 + 1);
-    const delta = pseudoRandom - span;
-    
-    return Math.max(1, Math.min(MAX_INTERVAL, baseInterval + delta));
+    const rawInterval = this.nextInterval(stability);
+    const [lower, upper] = this.constrainedFuzzBounds(rawInterval, 1, MAX_INTERVAL);
+    const fuzzFactor = this.fuzzFactorFromSeed(seed);
+    return Math.floor(lower + fuzzFactor * (1 + upper - lower));
   }
 }

@@ -25,7 +25,7 @@ export interface SavedSessionState {
   /** Per-item due time snapshot (itemId -> due epoch ms) */
   dueTimes?: Record<string, number>;
   /** Snapshot of previous states for undo functionality */
-  undoStack?: any[]; 
+  undoStack?: unknown[];
   /** Timestamp when this snapshot was saved */
   savedAt: number;
 }
@@ -79,12 +79,16 @@ export const sessionPersistence = {
         return null;
       }
 
+      const waitingUntil = typeof parsed?.waitingUntil === 'number' && parsed.waitingUntil > Date.now()
+        ? parsed.waitingUntil
+        : null;
+
       const state: SavedSessionState = {
         version: 3,
         ids: Array.isArray(parsed?.ids) ? parsed.ids : [],
         currentIndex: Number.isInteger(parsed?.currentIndex) ? parsed.currentIndex : 0,
         completed: Number.isInteger(parsed?.completed) ? parsed.completed : 0,
-        waitingUntil: typeof parsed?.waitingUntil === 'number' ? parsed.waitingUntil : null,
+        waitingUntil,
         // Legacy sessions without savedAt are treated as "just saved" to avoid
         // discarding a valid in-progress session purely due to a missing field.
         savedAt: Number.isFinite(parsed?.savedAt) && parsed.savedAt > 0 ? parsed.savedAt : Date.now(),

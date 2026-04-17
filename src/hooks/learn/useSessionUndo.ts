@@ -1,7 +1,6 @@
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useState } from 'react';
 import { FsrsRating, StudyItem, UserProgress } from '@/types/study';
 import { studyService } from '@/lib/services/studyService';
-import { sessionPersistence, SavedSessionState } from '@/lib/services/sessionPersistence';
 
 export interface UndoSnapshot {
   actionType: 'rate' | 'suspend' | 'bury';
@@ -17,29 +16,40 @@ export interface UndoSnapshot {
   /** Epoch day captured at the moment of the action. Used by undo to roll back
    *  stats on the correct calendar day even if the user crosses midnight. */
   epochDay: number;
+  /** Optional stats bucket written by this rating; null means no stats delta. */
+  statsField?: 'learned_words' | 'learned_grammars' | 'reviewed_words' | 'reviewed_grammars' | null;
 }
 
 const MAX_UNDO_STACK = 5;
 
 export function useSessionUndo(userId: string, initialStack: UndoSnapshot[] = []) {
-  const [canUndo, setCanUndo] = useState(initialStack.length > 0);
-  const undoStackRef = useRef<UndoSnapshot[]>(initialStack);
+  const [undoStack, setUndoStack] = useState<UndoSnapshot[]>(initialStack);
+  const canUndo = undoStack.length > 0;
 
   const pushSnapshot = useCallback((snapshot: UndoSnapshot) => {
-    undoStackRef.current.push(snapshot);
-    if (undoStackRef.current.length > MAX_UNDO_STACK) {
-      undoStackRef.current.shift();
-    }
-    setCanUndo(true);
+    setUndoStack((prev) => {
+      const next = [...prev, snapshot];
+      if (next.length > MAX_UNDO_STACK) {
+        next.shift();
+      }
+      return next;
+    });
   }, []);
 
   const performUndo = useCallback(async (fallbackEpochDay: number) => {
-    if (undoStackRef.current.length === 0) return null;
+    if (undoStack.length === 0) return null;
 
-    const lastSnapshot = undoStackRef.current[undoStackRef.current.length - 1];
+    const lastSnapshot = undoStack[undoStack.length - 1];
     // Prefer the epochDay captured at rating time to avoid cross-day stats errors.
     // Fall back to the caller-provided day only for old snapshots without this field.
-    const epochDay = (lastSnapshot as UndoSnapshot).epochDay ?? fallbackEpochDay;
+    const epochDay = lastSnapshot.epochDay ?? fallbackEpochDay;
+    const ratingPayload = lastSnapshot.actionType === 'rate' && lastSnapshot.lastRating !== undefined
+      ? {
+        itemType: lastSnapshot.reviewLogItemType,
+        itemId: lastSnapshot.reviewLogItemId,
+        rating: lastSnapshot.lastRating
+      }
+      : undefined;
     
     try {
       // 1. Database Rollback
@@ -48,33 +58,28 @@ export function useSessionUndo(userId: string, initialStack: UndoSnapshot[] = []
         lastSnapshot.reviewLogItemType,
         lastSnapshot.previousProgress,
         epochDay,
-        lastSnapshot.actionType === 'rate' ? {
-          itemType: lastSnapshot.reviewLogItemType,
-          itemId: lastSnapshot.reviewLogItemId,
-          rating: lastSnapshot.lastRating as any
-        } : undefined,
-        lastSnapshot.actionType !== 'rate'
+        ratingPayload,
+        lastSnapshot.actionType !== 'rate',
+        lastSnapshot.actionType === 'rate' ? (lastSnapshot.statsField ?? null) : null
       );
 
       // 2. Consume snapshot
-      undoStackRef.current.pop();
-      setCanUndo(undoStackRef.current.length > 0);
+      setUndoStack((prev) => prev.slice(0, -1));
       
       return lastSnapshot;
     } catch (e) {
       console.error("[useSessionUndo] Rollback failed:", e);
       throw e;
     }
-  }, [userId]);
+  }, [undoStack, userId]);
 
   const clearUndo = useCallback(() => {
-    undoStackRef.current = [];
-    setCanUndo(false);
+    setUndoStack([]);
   }, []);
 
   return {
     canUndo,
-    undoStack: undoStackRef.current,
+    undoStack,
     pushSnapshot,
     performUndo,
     clearUndo

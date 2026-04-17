@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { StudyConfig } from '@/types/study';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
@@ -52,27 +52,30 @@ export default function SettingsPage() {
   const [leechThresholdStr, setLeechThresholdStr] = useState('');
   const [leechAction, setLeechAction] = useState<'skip' | 'bury_today'>('skip');
 
+  type SrsConfigFields = Pick<StudyConfig, 'learningSteps' | 'relearningSteps' | 'leechThreshold' | 'leechAction'>;
+  const setSrsTempStates = useCallback((c: SrsConfigFields) => {
+    setLearningStepsStr(c.learningSteps.join(' '));
+    setRelearningStepsStr(c.relearningSteps.join(' '));
+    setLeechThresholdStr(c.leechThreshold.toString());
+    setLeechAction(c.leechAction || 'skip');
+  }, []);
+
   useEffect(() => {
     const init = async () => {
       const studyConfig = await settingsService.getStudyConfig();
       setConfig(studyConfig);
       
-      const storedTheme = localStorage.getItem('nemo_theme') as any;
-      if (storedTheme) setTheme(storedTheme);
+      const storedTheme = localStorage.getItem('nemo_theme');
+      if (storedTheme === 'light' || storedTheme === 'dark' || storedTheme === 'system') {
+        setTheme(storedTheme);
+      }
 
       if (studyConfig) {
         setSrsTempStates(studyConfig);
       }
     };
     init();
-  }, []);
-
-  const setSrsTempStates = (c: StudyConfig) => {
-    setLearningStepsStr(c.learningSteps.join(' '));
-    setRelearningStepsStr(c.relearningSteps.join(' '));
-    setLeechThresholdStr(c.leechThreshold.toString());
-    setLeechAction(c.leechAction || 'skip');
-  };
+  }, [setSrsTempStates]);
 
   const saveConfig = async (newConfig: Partial<StudyConfig>) => {
     if (!config) return;
@@ -413,7 +416,7 @@ export default function SettingsPage() {
                     <select 
                       className={styles.selectInput}
                       value={leechAction}
-                      onChange={(e) => setLeechAction(e.target.value as any)}
+                      onChange={(e) => setLeechAction(e.target.value as StudyConfig['leechAction'])}
                     >
                       <option value="skip">自动停载</option>
                       <option value="bury_today">今日暂缓</option>
@@ -427,9 +430,9 @@ export default function SettingsPage() {
               <button 
                 className={clsx(styles.footerBtn, styles.secondaryBtn)} 
                 onClick={() => {
-                  const defaults = { learningSteps: [1, 10], relearningSteps: [1, 10], leechThreshold: 5, leechAction: 'skip' };
-                  setSrsTempStates(defaults as any);
-                  saveConfig(defaults as any);
+                  const defaults: SrsConfigFields = { learningSteps: [1, 10], relearningSteps: [1, 10], leechThreshold: 5, leechAction: 'skip' };
+                  setSrsTempStates(defaults);
+                  saveConfig(defaults);
                 }}
               >
                 恢复默认

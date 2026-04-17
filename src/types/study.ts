@@ -107,7 +107,9 @@ export type StudyMode = 'WORDS_ONLY' | 'GRAMMAR_ONLY';
 
 export interface StudyConfig {
   mode: StudyMode;
-  level: string; // 'N1' | 'N2' | 'N3' | 'N4' | 'N5'
+  level: string; // Current effective level, derived from wordLevel/grammarLevel
+  wordLevel: string;
+  grammarLevel: string;
   dailyGoal: number;
   grammarDailyGoal: number;
   isRandom: boolean;
@@ -147,6 +149,16 @@ export interface LearningStats {
   todayReviewedGrammars: number;
   dueWords: number;
   dueGrammars: number;
+
+  // Granular counts for Anki-style display
+  dueNewWords: number;        // State 0
+  dueLearningWords: number;   // State 1, 3
+  dueReviewWords: number;     // State 2
+  
+  dueNewGrammars: number;     // State 0
+  dueLearningGrammars: number;// State 1, 3
+  dueReviewGrammars: number;  // State 2
+
   streak: number;
   dailyGoal: number;
   grammarDailyGoal: number;

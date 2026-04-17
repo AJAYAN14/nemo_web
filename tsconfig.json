@@ -30,5 +30,5 @@
     ".next/dev/types/**/*.ts",
     "**/*.mts"
   ],
-  "exclude": ["node_modules", "Android project", "backups"]
+  "exclude": ["node_modules", "Android project", "anki源码项目", "backups"]
 }

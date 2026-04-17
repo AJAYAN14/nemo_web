@@ -1,10 +1,10 @@
 "use client";
 
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import clsx from "clsx";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
 import { 
   seionData, 
   dakuonData, 
@@ -25,17 +25,32 @@ export default function KanaChartPage() {
   const [playingId, setPlayingId] = useState<string | null>(null);
   const [flashSection, setFlashSection] = useState<SectionKey | null>(null);
 
-  const sectionRefs = {
-    seion: useRef<HTMLElement>(null),
-    dakuon: useRef<HTMLElement>(null),
-    yoon: useRef<HTMLElement>(null),
-    sokuon: useRef<HTMLElement>(null),
-    chouon: useRef<HTMLElement>(null),
+  const seionRef = useRef<HTMLElement>(null);
+  const dakuonRef = useRef<HTMLElement>(null);
+  const yoonRef = useRef<HTMLElement>(null);
+  const sokuonRef = useRef<HTMLElement>(null);
+  const chouonRef = useRef<HTMLElement>(null);
+
+  const getSectionRef = (key: SectionKey) => {
+    switch (key) {
+      case "seion":
+        return seionRef;
+      case "dakuon":
+        return dakuonRef;
+      case "yoon":
+        return yoonRef;
+      case "sokuon":
+        return sokuonRef;
+      case "chouon":
+        return chouonRef;
+      default:
+        return seionRef;
+    }
   };
 
   const scrollToSection = (key: SectionKey) => {
     setActiveSection(key);
-    sectionRefs[key].current?.scrollIntoView({ behavior: "smooth" });
+    getSectionRef(key).current?.scrollIntoView({ behavior: "smooth" });
     setFlashSection(key);
     setTimeout(() => setFlashSection(null), 1000);
   };
@@ -75,11 +90,6 @@ export default function KanaChartPage() {
       opacity: 1,
       transition: { staggerChildren: 0.1 }
     }
-  };
-
-  const sectionVariants = {
-    hidden: { opacity: 0, y: 20 },
-    visible: { opacity: 1, y: 0 }
   };
 
   return (
@@ -133,7 +143,7 @@ export default function KanaChartPage() {
           key={activeType} // Refresh animations when toggling script
         >
           {/* 1. 清音 */}
-          <section className={clsx(styles.section, flashSection === "seion" && styles.flash)} ref={sectionRefs.seion}>
+          <section className={clsx(styles.section, flashSection === "seion" && styles.flash)} ref={seionRef}>
             <div className={styles.sectionTitleRow}>
               <div className={styles.sectionIndicator} />
               <h2 className={styles.sectionTitle}>清音</h2>
@@ -152,7 +162,7 @@ export default function KanaChartPage() {
           </section>
 
           {/* 2. 浊音 / 半浊音 */}
-          <section className={clsx(styles.section, flashSection === "dakuon" && styles.flash)} ref={sectionRefs.dakuon}>
+          <section className={clsx(styles.section, flashSection === "dakuon" && styles.flash)} ref={dakuonRef}>
             <div className={styles.sectionTitleRow}>
               <div className={styles.sectionIndicator} />
               <h2 className={styles.sectionTitle}>浊音 / 半浊音</h2>
@@ -172,7 +182,7 @@ export default function KanaChartPage() {
           </section>
 
           {/* 3. 拗音 */}
-          <section className={clsx(styles.section, flashSection === "yoon" && styles.flash)} ref={sectionRefs.yoon}>
+          <section className={clsx(styles.section, flashSection === "yoon" && styles.flash)} ref={yoonRef}>
             <div className={styles.sectionTitleRow}>
               <div className={styles.sectionIndicator} />
               <h2 className={styles.sectionTitle}>拗音</h2>
@@ -192,7 +202,7 @@ export default function KanaChartPage() {
           </section>
 
           {/* 4. 促音 */}
-          <section className={clsx(styles.section, flashSection === "sokuon" && styles.flash)} ref={sectionRefs.sokuon}>
+          <section className={clsx(styles.section, flashSection === "sokuon" && styles.flash)} ref={sokuonRef}>
             <div className={styles.sectionTitleRow}>
               <div className={styles.sectionIndicator} />
               <h2 className={styles.sectionTitle}>促音</h2>
@@ -212,7 +222,7 @@ export default function KanaChartPage() {
           </section>
 
           {/* 5. 长音 */}
-          <section className={clsx(styles.section, flashSection === "chouon" && styles.flash)} ref={sectionRefs.chouon}>
+          <section className={clsx(styles.section, flashSection === "chouon" && styles.flash)} ref={chouonRef}>
             <div className={styles.sectionTitleRow}>
               <div className={styles.sectionIndicator} />
               <h2 className={styles.sectionTitle}>长音</h2>

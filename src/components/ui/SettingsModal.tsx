@@ -8,68 +8,54 @@ import styles from './SettingsModal.module.css';
 interface SettingsModalProps {
   isOpen: boolean;
   onClose: () => void;
+  onSave?: () => void;
 }
 
-const DEFAULT_CONFIG: StudyConfig = {
-  mode: 'WORDS_ONLY',
-  level: 'N5',
-  dailyGoal: 20,
-  grammarDailyGoal: 5,
-  isRandom: true,
-  learningSteps: [1, 10],
-  relearningSteps: [1, 10],
-  learnAheadLimit: 20, // Default to 20 mins like Android
-  leechThreshold: 5,
-  leechAction: 'skip',
-  resetHour: 4,
-  isAutoAudioEnabled: true,
-  isShowAnswerDelayEnabled: false,
-};
+// Standardize on settingsService for configuration management
 
 
-export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
-  const loadConfigFromStorage = (): StudyConfig => {
-    if (typeof window === 'undefined') return DEFAULT_CONFIG;
-    const stored = localStorage.getItem('nemo_study_settings');
-    if (!stored) return DEFAULT_CONFIG;
-    try {
-      const parsed = JSON.parse(stored);
-      return {
-        ...DEFAULT_CONFIG,
-        ...parsed,
-        learnAheadLimit: parsed.learnAheadLimit ?? 20,
-      };
-    } catch {
-      return DEFAULT_CONFIG;
-    }
-  };
-
-  const initialConfig = loadConfigFromStorage();
-  const [config, setConfig] = useState<StudyConfig>(initialConfig);
-  const [learningStepsStr, setLearningStepsStr] = useState(() => initialConfig.learningSteps.join(' '));
-  const [relearningStepsStr, setRelearningStepsStr] = useState(() => initialConfig.relearningSteps.join(' '));
-  const [learnAheadLimitStr, setLearnAheadLimitStr] = useState(() => initialConfig.learnAheadLimit.toString());
-  const [leechThresholdStr, setLeechThresholdStr] = useState(() => initialConfig.leechThreshold.toString());
+export function SettingsModal({ isOpen, onClose, onSave }: SettingsModalProps) {
+  const [config, setConfig] = useState<StudyConfig | null>(null);
+  const [learningStepsStr, setLearningStepsStr] = useState('');
+  const [relearningStepsStr, setRelearningStepsStr] = useState('');
+  const [learnAheadLimitStr, setLearnAheadLimitStr] = useState('');
+  const [leechThresholdStr, setLeechThresholdStr] = useState('');
   const [showAdvanced, setShowAdvanced] = useState(false);
 
-  const handleSave = () => {
+  React.useEffect(() => {
+    const init = async () => {
+      const c = await settingsService.getStudyConfig();
+      setConfig(c);
+      setLearningStepsStr(c.learningSteps.join(' '));
+      setRelearningStepsStr(c.relearningSteps.join(' '));
+      setLearnAheadLimitStr(c.learnAheadLimit.toString());
+      setLeechThresholdStr(c.leechThreshold.toString());
+    };
+    if (isOpen) init();
+  }, [isOpen]);
+
+  const handleSave = async () => {
+    if (!config) return;
     // Parse steps strings back to arrays
     const parseSteps = (str: string) => str.split(/\s+/).map(s => parseInt(s)).filter(n => !isNaN(n));
 
-    // Merge with current to preserve home-screen mode/level
-    const newConfig: StudyConfig = { 
-      ...config,
+    // Merge with current state
+    const newConfig: Partial<StudyConfig> = { 
+      isRandom: config.isRandom,
+      leechAction: config.leechAction,
+      resetHour: config.resetHour,
       learningSteps: parseSteps(learningStepsStr),
       relearningSteps: parseSteps(relearningStepsStr),
       learnAheadLimit: parseInt(learnAheadLimitStr) || 0,
       leechThreshold: parseInt(leechThresholdStr) || 5,
     };
 
-    localStorage.setItem('nemo_study_settings', JSON.stringify(newConfig));
+    await settingsService.updateStudyConfig(newConfig);
+    if (onSave) onSave();
     onClose();
   };
 
-  if (!isOpen) return null;
+  if (!isOpen || !config) return null;
 
   return (
     <div className={styles.overlay} onClick={onClose}>

@@ -1,4 +1,4 @@
-export interface KanaCell {
+﻿export interface KanaCell {
   hiragana: string;
   katakana: string | null;
   romaji: string;
@@ -31,7 +31,7 @@ export const yoonData: (KanaCell | null)[] = [
   { hiragana: "ぎゃ", katakana: "ギャ", romaji: "gya" }, { hiragana: "ぎゅ", katakana: "ギュ", romaji: "gyu" }, { hiragana: "ぎょ", katakana: "ギョ", romaji: "gyo" },
   { hiragana: "しゃ", katakana: "シャ", romaji: "sha" }, { hiragana: "しゅ", katakana: "シュ", romaji: "shu" }, { hiragana: "しょ", katakana: "ショ", romaji: "sho" },
   { hiragana: "じゃ", katakana: "ジャ", romaji: "ja" }, { hiragana: "じゅ", katakana: "ジュ", romaji: "ju" }, { hiragana: "じょ", katakana: "ジョ", romaji: "jo" },
-  { hiragana: "ちゃ", katakana: "チャ", romaji: "cha" }, { hiragana: "ちゅ", katakana: "チュ", romaji: "chu" }, { hiragana: "ちょ", katakana: "cho" } as any, // Fixing a slight error in data above
+  { hiragana: "ちゃ", katakana: "チャ", romaji: "cha" }, { hiragana: "ちゅ", katakana: "チュ", romaji: "chu" }, { hiragana: "ちょ", katakana: "チョ", romaji: "cho" },
   { hiragana: "にゃ", katakana: "ニャ", romaji: "nya" }, { hiragana: "にゅ", katakana: "ニュ", romaji: "nyu" }, { hiragana: "にょ", katakana: "ニョ", romaji: "nyo" },
   { hiragana: "ひゃ", katakana: "ヒャ", romaji: "hya" }, { hiragana: "ひゅ", katakana: "ヒュ", romaji: "hyu" }, { hiragana: "ひょ", katakana: "ヒョ", romaji: "hyo" },
   { hiragana: "びゃ", katakana: "ビャ", romaji: "bya" }, { hiragana: "びゅ", katakana: "ビュ", romaji: "byu" }, { hiragana: "びょ", katakana: "ビョ", romaji: "byo" },
@@ -39,9 +39,6 @@ export const yoonData: (KanaCell | null)[] = [
   { hiragana: "みゃ", katakana: "ミャ", romaji: "mya" }, { hiragana: "みゅ", katakana: "ミュ", romaji: "myu" }, { hiragana: "みょ", katakana: "ミョ", romaji: "myo" },
   { hiragana: "りゃ", katakana: "リャ", romaji: "rya" }, { hiragana: "りゅ", katakana: "リュ", romaji: "ryu" }, { hiragana: "りょ", katakana: "リョ", romaji: "ryo" }
 ];
-
-// Fixing the missing value in yoonData (cho)
-(yoonData[14] as any).katakana = "チョ";
 
 export const sokuonData: (KanaCell | null)[] = [
   { hiragana: "っ+k", katakana: "ッ+k", romaji: "kk" }, { hiragana: "っ+s", katakana: "ッ+s", romaji: "ss" }, { hiragana: "っ+t", katakana: "ッ+t", romaji: "tt" }, { hiragana: "っ+p", katakana: "ッ+p", romaji: "pp" }

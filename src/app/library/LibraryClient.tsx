@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, Suspense } from "react";
+import React, { useEffect, useState, Suspense } from "react";
 import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
 import { useInView } from "react-intersection-observer";
 import { Search, BookOpen, FileText } from "lucide-react";
@@ -16,23 +16,23 @@ import { studyService } from "@/lib/services/studyService";
 import { supabase } from "@/lib/supabase";
 
 const LEVELS: (JLPTLevel | "ALL")[] = ["ALL", "N5", "N4", "N3", "N2", "N1"];
+type LibraryTab = DictionaryTab | "leeches";
+
+function parseTab(value: string | null): LibraryTab | null {
+  if (value === "words" || value === "grammars" || value === "leeches") {
+    return value;
+  }
+  return null;
+}
 
 function LibraryContent() {
   const searchParams = useSearchParams();
-  const initialTab = (searchParams.get("tab") as DictionaryTab | "leeches") || "words";
+  const initialTab = parseTab(searchParams.get("tab")) || "words";
   
-  const [activeTab, setActiveTab] = useState<DictionaryTab | "leeches">(initialTab);
+  const [activeTab, setActiveTab] = useState<LibraryTab>(initialTab);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedLevel, setSelectedLevel] = useState<JLPTLevel | "ALL">("ALL");
   const { ref, inView } = useInView();
-
-  // Sync tab if search params change
-  useEffect(() => {
-    const tab = searchParams.get("tab");
-    if (tab && (tab === "words" || tab === "grammars" || tab === "leeches")) {
-      setActiveTab(tab as any);
-    }
-  }, [searchParams]);
 
   const filters: DictionaryFilters = {
     query: searchQuery,

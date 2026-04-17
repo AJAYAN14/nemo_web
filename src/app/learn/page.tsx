@@ -12,6 +12,7 @@ import { ItemType } from "@/types/study";
 import { NemoButton } from "@/components/ui/NemoButton";
 import { settingsService } from "@/lib/services/settingsService";
 import { SakuraLoader } from "@/components/common/SakuraLoader";
+import { sessionPersistence } from "@/lib/services/sessionPersistence";
 
 function LearnPageContent() {
   const router = useRouter();
@@ -46,22 +47,61 @@ function LearnPageContent() {
 
       if (!user) throw new Error("User not found");
 
-      // 1. Auto-seed daily limit if new items are insufficient
-      const dailyGoal = (!type || type === 'word') ? studyConfig.dailyGoal : 0;
-      const grammarDailyGoal = (!type || type === 'grammar') ? studyConfig.grammarDailyGoal : 0;
+      const savedSession = sessionPersistence.loadSession('learn');
+      let savedSessionItemsForMode: Awaited<ReturnType<typeof studyService.getDueItems>> = [];
+      if (savedSession?.ids?.length) {
+        savedSessionItemsForMode = await studyService.getSessionItemsByProgressIds(
+          user.id,
+          savedSession.ids,
+          type || undefined
+        );
+      }
+      const hasReusableSessionForMode = savedSessionItemsForMode.length > 0;
+
+      // 1. Auto-seed only when current user+mode has no reusable saved session.
+      // This avoids both duplicated seeding and cross-user/cross-mode false positives.
+      if (!hasReusableSessionForMode) {
+        const dailyGoal = (!type || type === 'word') ? studyConfig.dailyGoal : 0;
+        const grammarDailyGoal = (!type || type === 'grammar') ? studyConfig.grammarDailyGoal : 0;
+
+        console.log(`[LearnPage] Seeding items... (words: ${dailyGoal}, grammars: ${grammarDailyGoal})`);
+        await studyService.seedDailyNewItems(user.id, dailyGoal, grammarDailyGoal, studyConfig.resetHour || 4, studyConfig.level, studyConfig.isRandom);
+      } else {
+        console.log(`[LearnPage] Skip seeding: reusable session detected for this mode (${savedSessionItemsForMode.length} items).`);
+      }
       
-      console.log(`[LearnPage] Seeding items... (words: ${dailyGoal}, grammars: ${grammarDailyGoal})`);
-      await studyService.seedDailyNewItems(user.id, dailyGoal, grammarDailyGoal, studyConfig.resetHour || 4, studyConfig.level, studyConfig.isRandom);
-      
-      // 2. Fetch actual due items with filter
-      const items = await studyService.getDueItems(user.id, 50, type || undefined, studyConfig.resetHour || 4);
-      console.log(`[LearnPage] Fetched ${items.length} items for the session.`);
+      // 2. Fetch due items by current window
+      const dueItems = await studyService.getDueItems(user.id, 50, type || undefined, studyConfig.resetHour || 4);
+
+      // Resume stability: include cards from saved session even if they are
+      // currently outside due/learnAhead window, so re-entering does not drop them.
+      let resumeItems: typeof dueItems = [];
+      if (savedSessionItemsForMode.length > 0) {
+        const dueIdSet = new Set(dueItems.map((item) => item.id));
+        const missingSessionIds = savedSessionItemsForMode
+          .map((item) => item.id)
+          .filter((id) => !dueIdSet.has(id));
+        if (missingSessionIds.length > 0) {
+          resumeItems = await studyService.getSessionItemsByProgressIds(user.id, missingSessionIds, type || undefined);
+        }
+      }
+
+      const mergedMap = new Map<string, (typeof dueItems)[number]>();
+      dueItems.forEach((item) => mergedMap.set(item.id, item));
+      resumeItems.forEach((item) => {
+        if (!mergedMap.has(item.id)) {
+          mergedMap.set(item.id, item);
+        }
+      });
+
+      const items = Array.from(mergedMap.values());
+      console.log(`[LearnPage] Fetched ${dueItems.length} due + ${resumeItems.length} resumed = ${items.length} session items.`);
 
       // 3. Sandwich Mix: interleave new items among reviews (Android LearningSessionPolicy parity)
-      const dueItems = items.filter(i => i.progress.reps > 0 && !!i.progress.last_review);
-      const newItems = items.filter(i => i.progress.reps === 0 || !i.progress.last_review);
-      const mixedItems = mixSessionItems(dueItems, newItems);
-      console.log(`[LearnPage] Sandwich Mix applied: ${dueItems.length} reviews + ${newItems.length} new → ${mixedItems.length} mixed`);
+      const reviewItemsForMix = items.filter(i => i.progress.reps > 0 && !!i.progress.last_review);
+      const newItemsForMix = items.filter(i => i.progress.reps === 0 || !i.progress.last_review);
+      const mixedItems = mixSessionItems(reviewItemsForMix, newItemsForMix);
+      console.log(`[LearnPage] Sandwich Mix applied: ${reviewItemsForMix.length} reviews + ${newItemsForMix.length} new → ${mixedItems.length} mixed`);
 
       // 4. Fetch today's stats for progress bar relative tracking
       const { statisticsService } = await import('@/lib/services/statisticsService');
@@ -70,9 +110,10 @@ function LearnPageContent() {
       return { items: mixedItems, config: studyConfig, todayStats };
     },
     enabled: !!user && !userLoading,
-    staleTime: 1000 * 60 * 10, // 10 minutes: items are fresh for 10 mins
-    refetchOnWindowFocus: false, // CRITICAL: Stop reload on tab switch
-    refetchOnMount: false, // Don't reload the session logic every time the page mount is cycled
+    staleTime: 0, // Always stale
+    gcTime: 0, // Drop cache on unmount to avoid stale session restore
+    refetchOnWindowFocus: false, // Stop reload on tab switch
+    refetchOnMount: 'always', // Always fetch fresh when entering Learn page
   });
 
   if (userLoading || itemsLoading) {
@@ -122,7 +163,18 @@ function LearnPageContent() {
     );
   }
 
-  return <LearnSession userId={user.id} initialItems={items} config={config!} mode={type || undefined} todayStats={todayStats} />;
+  const sessionKey = `${user.id}:${type || 'all'}:${items.map(i => i.id).join(',')}`;
+
+  return (
+    <LearnSession
+      key={sessionKey}
+      userId={user.id}
+      initialItems={items}
+      config={config!}
+      mode={type || undefined}
+      todayStats={todayStats}
+    />
+  );
 }
 
 export default function LearnPage() {

@@ -41,8 +41,6 @@ function LearnSessionUI({ todayStats }: { todayStats: LearnSessionProps['todaySt
     showAnswer,
     rate,
     undo,
-    suspendCurrent,
-    buryCurrent,
     resumeFromWaiting,
     isShowAnswerDelayEnabled,
     showAnswerDelayDuration,
@@ -60,11 +58,14 @@ function LearnSessionUI({ todayStats }: { todayStats: LearnSessionProps['todaySt
 
   // Sync answer gate
   useEffect(() => {
-    if (isShowAnswerDelayEnabled && !isCardFlipped) {
-      setShowAnswerAvailableAt(Date.now() + (showAnswerDelayDuration * 1000));
-    } else {
-      setShowAnswerAvailableAt(0);
-    }
+    const timerId = window.setTimeout(() => {
+      if (isShowAnswerDelayEnabled && !isCardFlipped) {
+        setShowAnswerAvailableAt(Date.now() + (showAnswerDelayDuration * 1000));
+      } else {
+        setShowAnswerAvailableAt(0);
+      }
+    }, 0);
+    return () => window.clearTimeout(timerId);
   }, [currentIndex, isShowAnswerDelayEnabled, isCardFlipped, showAnswerDelayDuration]);
 
   // Stable progress calculation

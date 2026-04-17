@@ -14,6 +14,7 @@ const eslintConfig = defineConfig([
     "next-env.d.ts",
     // Non-web workspace folders:
     "Android project/**",
+    "anki源码项目/**",
   ]),
 ]);
 

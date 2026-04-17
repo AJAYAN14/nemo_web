@@ -18,14 +18,87 @@ interface UndoReviewMeta {
   rating: FsrsRating;
 }
 
+type StudyDeltaField = 'learned_words' | 'learned_grammars' | 'reviewed_words' | 'reviewed_grammars';
+
+function getCompletionStudyDeltaField(
+  itemType: ItemType,
+  stateBeforeAnswer: number,
+  actionType: RatingAction['type']
+): StudyDeltaField | null {
+  // Progress ring semantics: only completed cards (graduate/leech) count.
+  if (actionType !== 'graduate' && actionType !== 'leech') {
+    return null;
+  }
+
+  // Graduation from Review/Relearning is review completion; otherwise learning completion.
+  const isReviewSide = stateBeforeAnswer === 2 || stateBeforeAnswer === 3;
+  if (itemType === 'word') {
+    return isReviewSide ? 'reviewed_words' : 'learned_words';
+  }
+  return isReviewSide ? 'reviewed_grammars' : 'learned_grammars';
+}
+
+async function resolveStudyItemsFromProgress(progressList: UserProgress[], sourceTag: string): Promise<StudyItem[]> {
+  if (!progressList || progressList.length === 0) return [];
+
+  const wordIds = progressList.filter(p => p.item_type === 'word').map(p => p.item_id);
+  const grammarIds = progressList.filter(p => p.item_type === 'grammar').map(p => p.item_id);
+
+  const [wordsRes, grammarsRes] = await Promise.all([
+    wordIds.length > 0
+      ? supabase.from('dictionary_words').select('*').in('id', wordIds)
+      : Promise.resolve({ data: [] }),
+    grammarIds.length > 0
+      ? supabase.from('dictionary_grammars').select('*').in('id', grammarIds)
+      : Promise.resolve({ data: [] })
+  ]);
+
+  const words = wordsRes.data || [];
+  const grammars = grammarsRes.data || [];
+
+  const studyItems = progressList.map(progress => {
+    const content = progress.item_type === 'word'
+      ? words.find(w => Number(w.id) === Number(progress.item_id))
+      : grammars.find(g => Number(g.id) === Number(progress.item_id));
+
+    if (!content) {
+      console.warn(`[StudyService.${sourceTag}] Missing dictionary content for ${progress.item_type} ID: ${progress.item_id}. This progress record may be orphaned.`);
+    }
+
+    let badge: 'NEW' | 'REVIEW' | 'RELEARN' = 'REVIEW';
+    if (progress.state === 0) badge = 'NEW';
+    else if (progress.state === 1 || progress.state === 3) badge = 'RELEARN';
+
+    return {
+      id: progress.id,
+      type: progress.item_type,
+      content,
+      badge,
+      step: progress.learning_step || 0,
+      dueTime: progress.next_review ? new Date(progress.next_review).getTime() : 0,
+      progress
+    } as StudyItem;
+  }).filter(item => item.content);
+
+  return studyItems;
+}
+
 export const studyService = {
+  getCompletionStudyDeltaField(
+    itemType: ItemType,
+    stateBeforeAnswer: number,
+    actionType: RatingAction['type']
+  ): StudyDeltaField | null {
+    return getCompletionStudyDeltaField(itemType, stateBeforeAnswer, actionType);
+  },
+
   async applyStudyRecordDelta(
     userId: string,
     epochDay: number,
     field: 'learned_words' | 'learned_grammars' | 'reviewed_words' | 'reviewed_grammars',
     delta: 1 | -1
   ): Promise<void> {
-    // Prefer DB-side atomic update to avoid lost increments under concurrent requests.
+    // DB-side atomic update is required in the current architecture.
     const rpcResult = await supabase.rpc('fn_apply_study_record_delta', {
       p_user_id: userId,
       p_epoch_day: epochDay,
@@ -33,42 +106,8 @@ export const studyService = {
       p_delta: delta
     });
 
-    if (!rpcResult.error) {
-      return;
-    }
-
-    // Fallback for environments where RPC is not deployed yet.
-    const { data } = await supabase
-      .from('study_records')
-      .select('*')
-      .eq('user_id', userId)
-      .eq('date', epochDay)
-      .maybeSingle();
-
-    const record = data || {
-      user_id: userId,
-      date: epochDay,
-      learned_words: 0,
-      learned_grammars: 0,
-      reviewed_words: 0,
-      reviewed_grammars: 0
-    };
-
-    const nextValue = Math.max(0, Number(record[field] || 0) + delta);
-
-    const { error: upsertError } = await supabase
-      .from('study_records')
-      .upsert(
-        {
-          ...record,
-          [field]: nextValue,
-          updated_at: new Date().toISOString()
-        },
-        { onConflict: 'user_id,date' }
-      );
-
-    if (upsertError) {
-      throw upsertError;
+    if (rpcResult.error) {
+      throw rpcResult.error;
     }
   },
 
@@ -179,10 +218,7 @@ export const studyService = {
     itemType?: ItemType,
     resetHour?: number
   ): Promise<StudyItem[]> {
-    const now = new Date().toISOString();
-    
-    // 1. Fetch due progress records
-    const { statisticsService } = await import('./statisticsService');
+    // 1. Resolve user config once for consistent filtering.
     const { settingsService } = await import('./settingsService');
     const config = await settingsService.getStudyConfig();
     
@@ -190,83 +226,59 @@ export const studyService = {
     const learnAheadMinutes = config.learnAheadLimit || 20;
     const nowWithBuffer = new Date(Date.now() + learnAheadMinutes * 60000).toISOString();
     const currentEpochDay = this.getLearningDay(new Date(), effectiveResetHour);
+    
+    const fetchByType = async (targetType: ItemType, targetLevel: string) => {
+      let query = supabase
+        .from('user_progress')
+        .select('*')
+        .eq('user_id', userId)
+        .eq('item_type', targetType)
+        .in('state', [0, 1, 2, 3])
+        .lte('next_review', nowWithBuffer)
+        .lte('buried_until', currentEpochDay)
+        .order('next_review', { ascending: true })
+        .order('id', { ascending: true });
 
-    let query = supabase
-      .from('user_progress')
-      .select('*')
-      .eq('user_id', userId)
-      .in('state', [0, 1, 2, 3])
-      .lte('next_review', nowWithBuffer)
-      .lte('buried_until', currentEpochDay); // [BEST PRACTICE] Skip buried items
+      if (targetLevel && targetLevel !== 'ALL') {
+        query = query.eq('level', targetLevel);
+      }
 
-    if (config.level && config.level !== 'ALL') {
-      query = query.eq('level', config.level);
-    }
+      if (typeof limit === 'number' && limit > 0 && itemType === targetType) {
+        query = query.limit(limit);
+      }
 
+      const { data, error } = await query;
+      if (error) throw error;
+      return (data || []) as UserProgress[];
+    };
+
+    let progressList: UserProgress[] = [];
     if (itemType) {
-      query = query.eq('item_type', itemType);
+      const levelForType = itemType === 'word' ? config.wordLevel : config.grammarLevel;
+      progressList = await fetchByType(itemType, levelForType);
+    } else {
+      const [wordRows, grammarRows] = await Promise.all([
+        fetchByType('word', config.wordLevel),
+        fetchByType('grammar', config.grammarLevel)
+      ]);
+
+      progressList = [...wordRows, ...grammarRows].sort((a, b) => {
+        const aDue = a.next_review ? new Date(a.next_review).getTime() : 0;
+        const bDue = b.next_review ? new Date(b.next_review).getTime() : 0;
+        if (aDue !== bDue) return aDue - bDue;
+        return Number(a.id) - Number(b.id);
+      });
+
+      if (typeof limit === 'number' && limit > 0) {
+        progressList = progressList.slice(0, limit);
+      }
     }
-
-    let orderedQuery = query
-      .order('next_review', { ascending: true })
-      .order('id', { ascending: true }); // Stable sort
-
-    if (typeof limit === 'number' && limit > 0) {
-      orderedQuery = orderedQuery.limit(limit);
-    }
-
-    const { data: progressList, error } = await orderedQuery;
-
-    if (error) throw error;
     
     console.log(`[StudyService.getDueItems] Found ${progressList?.length || 0} due progress records for user ${userId} (type: ${itemType || 'ALL'}, resetHour: ${effectiveResetHour})`);
     
     if (!progressList || progressList.length === 0) return [];
 
-    // 2. Resolve content (Words and Grammars)
-    const wordIds = progressList.filter(p => p.item_type === 'word').map(p => p.item_id);
-    const grammarIds = progressList.filter(p => p.item_type === 'grammar').map(p => p.item_id);
-    
-    console.log(`[StudyService.getDueItems] Resolving content - Words: ${wordIds.length}, Grammars: ${grammarIds.length}`);
-
-    const [wordsRes, grammarsRes] = await Promise.all([
-      wordIds.length > 0 
-        ? supabase.from('dictionary_words').select('*').in('id', wordIds)
-        : Promise.resolve({ data: [] }),
-      grammarIds.length > 0
-        ? supabase.from('dictionary_grammars').select('*').in('id', grammarIds)
-        : Promise.resolve({ data: [] })
-    ]);
-
-    const words = wordsRes.data || [];
-    const grammars = grammarsRes.data || [];
-    
-    console.log(`[StudyService.getDueItems] Dictionary Result - Words: ${words.length}, Grammars: ${grammars.length}`);
-
-    // 3. Map back to StudyItems
-    const studyItems = progressList.map(progress => {
-      const content = progress.item_type === 'word'
-        ? words.find(w => Number(w.id) === Number(progress.item_id))
-        : grammars.find(g => Number(g.id) === Number(progress.item_id));
-
-      if (!content) {
-        console.warn(`[StudyService.getDueItems] Missing dictionary content for ${progress.item_type} ID: ${progress.item_id}. This progress record may be orphaned.`);
-      }
-
-      let badge: 'NEW' | 'REVIEW' | 'RELEARN' = 'REVIEW';
-      if (progress.state === 0) badge = 'NEW';
-      else if (progress.state === 1 || progress.state === 3) badge = 'RELEARN';
-
-      return {
-        id: progress.id,
-        type: progress.item_type,
-        content,
-        badge,
-        step: progress.learning_step || 0,
-        dueTime: progress.next_review ? new Date(progress.next_review).getTime() : 0,
-        progress
-      } as StudyItem;
-    }).filter(item => item.content); 
+    const studyItems = await resolveStudyItemsFromProgress(progressList, 'getDueItems');
     
     if (studyItems.length < progressList.length) {
       console.log(`[StudyService.getDueItems] Final mapped items: ${studyItems.length} (Filtered out ${progressList.length - studyItems.length} items with missing content)`);
@@ -287,38 +299,35 @@ export const studyService = {
       .order('lapses', { ascending: false });
 
     if (error) throw error;
-    if (!progressList || progressList.length === 0) return [];
+    return resolveStudyItemsFromProgress(progressList || [], 'getLeeches');
+  },
 
-    const wordIds = progressList.filter(p => p.item_type === 'word').map(p => p.item_id);
-    const grammarIds = progressList.filter(p => p.item_type === 'grammar').map(p => p.item_id);
+  /**
+   * Fetch specific session items by progress IDs (for stable resume behavior),
+   * regardless of current due/learnAhead window.
+   */
+  async getSessionItemsByProgressIds(
+    userId: string,
+    progressIds: string[],
+    itemType?: ItemType
+  ): Promise<StudyItem[]> {
+    if (!progressIds || progressIds.length === 0) return [];
 
-    const [wordsRes, grammarsRes] = await Promise.all([
-      wordIds.length > 0 
-        ? supabase.from('dictionary_words').select('*').in('id', wordIds)
-        : Promise.resolve({ data: [] }),
-      grammarIds.length > 0
-        ? supabase.from('dictionary_grammars').select('*').in('id', grammarIds)
-        : Promise.resolve({ data: [] })
-    ]);
+    let query = supabase
+      .from('user_progress')
+      .select('*')
+      .eq('user_id', userId)
+      .in('id', progressIds)
+      .in('state', [0, 1, 2, 3]);
 
-    const words = wordsRes.data || [];
-    const grammars = grammarsRes.data || [];
+    if (itemType) {
+      query = query.eq('item_type', itemType);
+    }
 
-    return progressList.map(progress => {
-      const content = progress.item_type === 'word'
-        ? words.find(w => w.id === progress.item_id)
-        : grammars.find(g => g.id === progress.item_id);
+    const { data, error } = await query;
+    if (error) throw error;
 
-      return {
-        id: progress.id,
-        type: progress.item_type,
-        content,
-        badge: progress.state === 0 ? 'NEW' : (progress.state === 3 ? 'RELEARN' : 'REVIEW'),
-        step: progress.learning_step || 0,
-        dueTime: progress.next_review ? new Date(progress.next_review).getTime() : 0,
-        progress
-      } as StudyItem;
-    }).filter(item => item.content); 
+    return resolveStudyItemsFromProgress(data || [], 'getSessionItemsByProgressIds');
   },
 
   async logActivity(
@@ -362,26 +371,20 @@ export const studyService = {
         progress,
         rating,
         now,
-        userId,
-        item.id
+        config.resetHour || 4
       ).updateData;
     } else {
-      updateData = ratingProcessor.buildRequeueUpdate(progress, rating, action, now);
+      updateData = ratingProcessor.buildRequeueUpdate(progress, rating, action, now, config.resetHour || 4);
     }
 
-    const studyField: 'learned_words' | 'learned_grammars' | 'reviewed_words' | 'reviewed_grammars' | null =
-      action.type === 'graduate'
-        ? (progress.reps === 0
-          ? (item.type === 'word' ? 'learned_words' : 'learned_grammars')
-          : (item.type === 'word' ? 'reviewed_words' : 'reviewed_grammars'))
-        : null;
+    const studyField = getCompletionStudyDeltaField(item.type, progress.state, action.type);
 
     const requestId =
       typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
         ? crypto.randomUUID()
         : `${Date.now()}-${Math.random().toString(16).slice(2)}`;
 
-    const rpcResult = await supabase.rpc('fn_process_review_atomic', {
+    const rpcParams = {
       p_user_id: userId,
       p_progress_id: progress.id,
       p_item_type: item.type,
@@ -405,7 +408,11 @@ export const studyService = {
       p_study_delta: studyField ? 1 : 0,
       p_request_id: requestId,
       p_expected_last_review: progress.last_review
-    });
+    };
+
+    console.log('[StudyService.processReview] Calling RPC fn_process_review_atomic with:', rpcParams);
+
+    const rpcResult = await supabase.rpc('fn_process_review_atomic', rpcParams);
 
     if (rpcResult.error) throw rpcResult.error;
 
@@ -427,12 +434,12 @@ export const studyService = {
     previousProgress: UserProgress,
     epochDay: number,
     undoMeta?: UndoReviewMeta,
-    skipStatsRollback: boolean = false
+    skipStatsRollback: boolean = false,
+    statsFieldOverride?: StudyDeltaField | null
   ): Promise<void> {
-    const isLearn = previousProgress.reps === 0;
-    const field = (skipStatsRollback) ? null : (isLearn
-      ? (itemType === 'word' ? 'learned_words' : 'learned_grammars')
-      : (itemType === 'word' ? 'reviewed_words' : 'reviewed_grammars'));
+    const field = skipStatsRollback
+      ? null
+      : (statsFieldOverride !== undefined ? statsFieldOverride : null);
 
     // Preferred path: atomic DB rollback (progress + stats + review_logs in one transaction).
     const atomicWithLogsResult = await supabase.rpc('fn_undo_review_atomic_v2', {
@@ -457,83 +464,11 @@ export const studyService = {
       p_delta: field ? -1 : 0
     });
 
-    if (!atomicWithLogsResult.error) {
-      console.log(`[StudyService.undoReview] Atomic rollback with logs successful for item ${previousProgress.id}`);
-      return;
+    if (atomicWithLogsResult.error) {
+      throw atomicWithLogsResult.error;
     }
 
-    // Compatibility path: previous atomic RPC without review_logs rollback.
-    const atomicResult = await supabase.rpc('fn_undo_review_atomic', {
-      p_user_id: userId,
-      p_progress_id: previousProgress.id,
-      p_epoch_day: epochDay,
-      p_field: field,
-      p_stability: previousProgress.stability,
-      p_difficulty: previousProgress.difficulty,
-      p_reps: previousProgress.reps,
-      p_lapses: previousProgress.lapses,
-      p_state: previousProgress.state,
-      p_learning_step: previousProgress.learning_step,
-      p_last_review: previousProgress.last_review,
-      p_next_review: previousProgress.next_review,
-      p_elapsed_days: previousProgress.elapsed_days,
-      p_scheduled_days: previousProgress.scheduled_days,
-      p_buried_until: previousProgress.buried_until
-    });
-
-    if (!atomicResult.error) {
-      // Keep logs consistent even when using old RPC.
-      if (undoMeta) {
-        await this.deleteLatestReviewLog(userId, undoMeta);
-      }
-      console.log(`[StudyService.undoReview] Atomic rollback successful for item ${previousProgress.id}`);
-      return;
-    }
-
-    // Compatibility fallback: legacy two-step rollback.
-    console.warn('[StudyService.undoReview] Atomic rollback unavailable, fallback to legacy path:', atomicResult.error);
-
-    const { error: progressError } = await supabase
-      .from('user_progress')
-      .update({
-        stability: previousProgress.stability,
-        difficulty: previousProgress.difficulty,
-        reps: previousProgress.reps,
-        lapses: previousProgress.lapses,
-        state: previousProgress.state,
-        learning_step: previousProgress.learning_step,
-        last_review: previousProgress.last_review,
-        next_review: previousProgress.next_review,
-        elapsed_days: previousProgress.elapsed_days,
-        scheduled_days: previousProgress.scheduled_days,
-        buried_until: previousProgress.buried_until
-      })
-      .eq('id', previousProgress.id);
-
-    if (progressError) throw progressError;
-
-    if (field) {
-      await this.applyStudyRecordDelta(userId, epochDay, field, -1);
-    }
-    
-    if (undoMeta) {
-      await this.deleteLatestReviewLog(userId, undoMeta);
-    }
-    
-    console.log(`[StudyService.undoReview] Database rollback successful for item ${previousProgress.id}`);
-  },
-
-  async deleteLatestReviewLog(userId: string, undoMeta: UndoReviewMeta): Promise<void> {
-    const { error } = await supabase.rpc('fn_delete_latest_review_log', {
-      p_user_id: userId,
-      p_item_type: undoMeta.itemType,
-      p_item_id: undoMeta.itemId,
-      p_rating: undoMeta.rating
-    });
-
-    if (error) {
-      console.warn('[StudyService.deleteLatestReviewLog] Failed to delete latest review log:', error);
-    }
+    console.log(`[StudyService.undoReview] Atomic rollback with logs successful for item ${previousProgress.id}`);
   },
 
   /**

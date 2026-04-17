@@ -206,6 +206,42 @@
 .miniStatLabel { font-size: 0.75rem; font-weight: 800; color: var(--muted); }
 .miniStatValue { font-size: 1.2rem; font-weight: 900; color: var(--foreground); }
 
+/* --- Task Board (Anki Style) --- */
+.taskBoard {
+  display: flex;
+  justify-content: space-around;
+  padding: 16px 8px;
+  margin-top: 12px;
+  background: white;
+  border-radius: 20px;
+  border: 1px solid rgba(0,0,0,0.06);
+}
+
+.taskItem {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  min-width: 60px;
+}
+
+.taskCount {
+  font-size: 1.3rem;
+  font-weight: 900;
+  line-height: 1;
+}
+
+.taskLabel {
+  font-size: 0.7rem;
+  font-weight: 800;
+  color: var(--muted);
+  opacity: 0.8;
+}
+
+.textNew { color: #3B82F6; }
+.textLearn { color: #EF4444; }
+.textReview { color: #10B981; }
+
 /* --- Resource List (Linear) --- */
 .sectionTitle {
   font-size: 0.9rem;

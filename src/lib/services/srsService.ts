@@ -3,6 +3,37 @@ import { StudyItem, StudyConfig } from '@/types/study';
 import { RatingAction } from '@/types/ratingAction';
 import { buildFsrsDeterministicSeed } from '@/lib/services/fsrsSeed';
 
+function getLearningDay(date: Date, resetHour: number): number {
+  const localHour = date.getHours();
+  const targetDate = new Date(date);
+
+  if (localHour < resetHour) {
+    targetDate.setDate(targetDate.getDate() - 1);
+  }
+
+  const noon = new Date(
+    targetDate.getFullYear(),
+    targetDate.getMonth(),
+    targetDate.getDate(),
+    12,
+    0,
+    0
+  );
+
+  return Math.floor(noon.getTime() / 86400000);
+}
+
+function getElapsedDays(lastReview: string | null, now: Date, resetHour: number): number {
+  if (!lastReview) {
+    return 0;
+  }
+
+  const nowDay = getLearningDay(now, resetHour);
+  const lastDay = getLearningDay(new Date(lastReview), resetHour);
+
+  return Math.max(0, nowDay - lastDay);
+}
+
 export const fsrs = new FsrsAlgorithm();
 
 /**
@@ -70,7 +101,8 @@ export const srsService = {
    */
   calculatePreviews(item: StudyItem, config: StudyConfig): Record<number, string> {
     const intervals: Record<number, string> = {};
-    const userId = item.progress.user_id;
+    const resetHour = config.resetHour || 4;
+    const now = new Date();
 
     for (let q = 1; q <= 4; q++) {
       let ratingFsrs = FsrsRating.Again;
@@ -85,15 +117,13 @@ export const srsService = {
         intervals[q] = delay < 1 ? "< 1m" : `${delay}m`;
       } else {
         const progress = item.progress;
-        const elapsedDays = progress.last_review 
-          ? Math.max(0, (new Date().getTime() - new Date(progress.last_review).getTime()) / 86400000) 
-          : 0;
+        const elapsedDays = getElapsedDays(progress.last_review, now, resetHour);
         
         const currentState = progress.reps > 0 ? { stability: progress.stability, difficulty: progress.difficulty } : null;
         const newState = fsrs.step(currentState, ratingFsrs, elapsedDays);
         
-        // Apply Fuzzing to previews to match actual scheduler
-        const seed = buildFsrsDeterministicSeed(userId, item.id);
+        // Apply deterministic fuzz to previews to match actual scheduler behavior.
+        const seed = buildFsrsDeterministicSeed(progress.id, progress.reps);
         const days = fsrs.nextIntervalDaysWithFuzz(newState.stability, seed);
         
         intervals[q] = this.formatInterval(days);

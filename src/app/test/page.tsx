@@ -12,6 +12,21 @@ import {
 } from "lucide-react";
 import styles from "./test.module.css";
 
+interface TestCardProps {
+  icon: React.ReactElement<{ size?: number; strokeWidth?: number }>;
+  color: string;
+  title: string;
+  count: string;
+  subtitle: string;
+}
+
+interface TestListItemProps {
+  icon: React.ReactElement<{ size?: number }>;
+  color: string;
+  title: string;
+  subtitle: string;
+}
+
 export default function TestPage() {
   return (
     <main className={styles.container}>
@@ -75,7 +90,7 @@ export default function TestPage() {
   );
 }
 
-function TestCard({ icon, color, title, count, subtitle }: any) {
+function TestCard({ icon, color, title, count, subtitle }: TestCardProps) {
   return (
     <div className={styles.testCard}>
       <div className={styles.cardIcon} style={{ color }}>
@@ -92,7 +107,7 @@ function TestCard({ icon, color, title, count, subtitle }: any) {
   );
 }
 
-function TestListItem({ icon, color, title, subtitle }: any) {
+function TestListItem({ icon, color, title, subtitle }: TestListItemProps) {
   return (
     <div className={styles.listItem}>
       <div className={styles.listIcon} style={{ background: `${color}15`, color: color }}>

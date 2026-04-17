@@ -63,7 +63,7 @@ describe('ratingProcessor.buildGraduateUpdate', () => {
     vi.spyOn(fsrs, 'step').mockReturnValue({ stability: 3.2, difficulty: 5.2 });
     vi.spyOn(fsrs, 'nextIntervalDays').mockReturnValue(2);
 
-    const result = ratingProcessor.buildGraduateUpdate(progress, FsrsRating.Again, now, progress.user_id, progress.id);
+    const result = ratingProcessor.buildGraduateUpdate(progress, FsrsRating.Again, now);
 
     expect(result.updateData.reps).toBe(3);
     expect(result.updateData.state).toBe(3);
@@ -77,7 +77,7 @@ describe('ratingProcessor.buildGraduateUpdate', () => {
     vi.spyOn(fsrs, 'step').mockReturnValue({ stability: 1.8, difficulty: 4.7 });
     vi.spyOn(fsrs, 'nextIntervalDaysWithFuzz').mockReturnValue(5);
 
-    const result = ratingProcessor.buildGraduateUpdate(progress, FsrsRating.Good, now, progress.user_id, progress.id);
+    const result = ratingProcessor.buildGraduateUpdate(progress, FsrsRating.Good, now);
 
     expect(result.updateData.reps).toBe(1);
     expect(result.updateData.state).toBe(2);
@@ -105,6 +105,7 @@ describe('ratingProcessor.buildRequeueUpdate', () => {
     expect(result.lapses).toBe(2);
     expect(result.learning_step).toBe(0);
     expect(result.next_review).toBe(new Date(now.getTime() + 10 * 60000).toISOString());
+    expect(result.last_review).toBe(now.toISOString());
     expect(result.stability).toBe(1.4);
   });
 
@@ -121,6 +122,7 @@ describe('ratingProcessor.buildRequeueUpdate', () => {
 
     expect(result.state).toBe(1);
     expect(result.lapses).toBe(0);
+    expect(result.last_review).toBe(now.toISOString());
     expect(result.stability).toBeUndefined();
     expect(result.difficulty).toBeUndefined();
   });

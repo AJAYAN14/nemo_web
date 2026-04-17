@@ -7,11 +7,32 @@ import { buildFsrsDeterministicSeed } from '@/lib/services/fsrsSeed';
 type LeechAction = Extract<RatingAction, { type: 'leech' }>;
 type RequeueAction = Extract<RatingAction, { type: 'requeue' }>;
 
-function getElapsedDays(progress: UserProgress, now: Date): number {
+function getLearningDay(date: Date, resetHour: number): number {
+  const localHour = date.getHours();
+  const targetDate = new Date(date);
+
+  if (localHour < resetHour) {
+    targetDate.setDate(targetDate.getDate() - 1);
+  }
+
+  const year = targetDate.getFullYear();
+  const month = targetDate.getMonth();
+  const day = targetDate.getDate();
+  const noon = new Date(year, month, day, 12, 0, 0);
+
+  return Math.floor(noon.getTime() / 86400000);
+}
+
+function getElapsedDays(progress: UserProgress, now: Date, resetHour: number): number {
   const lastReviewDate = progress.last_review ? new Date(progress.last_review) : null;
-  return lastReviewDate
-    ? Math.max(0, (now.getTime() - lastReviewDate.getTime()) / (1000 * 60 * 60 * 24))
-    : 0;
+  if (!lastReviewDate) {
+    return 0;
+  }
+
+  const nowDay = getLearningDay(now, resetHour);
+  const lastDay = getLearningDay(lastReviewDate, resetHour);
+
+  return Math.max(0, nowDay - lastDay);
 }
 
 export const ratingProcessor = {
@@ -33,10 +54,9 @@ export const ratingProcessor = {
     progress: UserProgress,
     rating: FsrsRating,
     now: Date,
-    userId: string,
-    itemId: string
+    resetHour: number = 4
   ): { updateData: Partial<UserProgress> } {
-    const elapsedDays = getElapsedDays(progress, now);
+    const elapsedDays = getElapsedDays(progress, now, resetHour);
     const currentState = progress.reps > 0
       ? { stability: progress.stability, difficulty: progress.difficulty }
       : null;
@@ -50,7 +70,7 @@ export const ratingProcessor = {
       interval = fsrs.nextIntervalDays(newState.stability);
     } else {
       newReps = progress.reps + 1;
-      const seed = buildFsrsDeterministicSeed(userId, itemId);
+      const seed = buildFsrsDeterministicSeed(progress.id, progress.reps);
       interval = fsrs.nextIntervalDaysWithFuzz(newState.stability, seed);
     }
 
@@ -75,17 +95,15 @@ export const ratingProcessor = {
     progress: UserProgress,
     rating: FsrsRating,
     action: RequeueAction,
-    now: Date
+    now: Date,
+    resetHour: number = 4
   ): Partial<UserProgress> {
     const isAgain = rating === FsrsRating.Again;
-    const isHard = rating === FsrsRating.Hard;
     let newStateUpdate: Partial<UserProgress> = {};
 
-    if (isAgain || (isHard && progress.reps > 0)) {
-      const elapsedDays = getElapsedDays(progress, now);
-      const currentState = progress.reps > 0
-        ? { stability: progress.stability, difficulty: progress.difficulty }
-        : null;
+    if (progress.reps > 0) {
+      const elapsedDays = getElapsedDays(progress, now, resetHour);
+      const currentState = { stability: progress.stability, difficulty: progress.difficulty };
       const newState = fsrs.step(currentState, rating, elapsedDays);
       const interval = fsrs.nextIntervalDays(newState.stability);
 
@@ -93,14 +111,19 @@ export const ratingProcessor = {
         stability: newState.stability,
         difficulty: newState.difficulty,
         elapsed_days: Math.round(elapsedDays),
-        scheduled_days: Math.round(interval)
+        scheduled_days: Math.round(interval),
+        last_review: now.toISOString()
       };
     }
 
     return {
       ...newStateUpdate,
+      // Any answered card should carry a review timestamp.
+      // This keeps DB invariants consistent when reps increments from 0 -> 1.
+      last_review: now.toISOString(),
       next_review: new Date(now.getTime() + action.delayMins * 60000).toISOString(),
       learning_step: action.nextStep,
+      reps: progress.reps + 1,
       state: isAgain ? 3 : (progress.reps === 0 ? 1 : progress.state),
       lapses: isAgain ? progress.lapses + 1 : progress.lapses
     };

@@ -44,40 +44,77 @@ export const statisticsService = {
       .maybeSingle();
 
     const now = new Date();
-    // For "Now due", we just check the current physical time
-
-
-    const stored = localStorage.getItem('nemo_study_settings');
-    let learnAheadMinutes = 20;
-    if (stored) {
-      try {
-        const config = JSON.parse(stored);
-        learnAheadMinutes = config.learnAheadLimit || 20;
-      } catch { }
-    }
-
+    const learnAheadMinutes = config.learnAheadLimit || 20;
     const nowWithBuffer = new Date(now.getTime() + learnAheadMinutes * 60000).toISOString();
 
-    const [wordsRes, grammarsRes] = await Promise.all([
-      supabase.from('user_progress')
-        .select('*', { count: 'exact', head: true })
+    // Keep home counters aligned with learn page queue source:
+    // same state filter, same level filter, same ordering, same per-type limit.
+    const fetchDueByType = async (itemType: 'word' | 'grammar', level: string) => {
+      let query = supabase
+        .from('user_progress')
+        .select('state, item_id')
         .eq('user_id', userId)
-        .eq('item_type', 'word')
-        .neq('state', -1)
-        .lte('buried_until', epochDay)
-        .gt('reps', 0)
-        .not('last_review', 'is', null)
-        .lte('next_review', nowWithBuffer),
-      supabase.from('user_progress')
-        .select('*', { count: 'exact', head: true })
-        .eq('user_id', userId)
-        .eq('item_type', 'grammar')
-        .neq('state', -1)
-        .lte('buried_until', epochDay)
-        .gt('reps', 0)
-        .not('last_review', 'is', null)
+        .eq('item_type', itemType)
+        .in('state', [0, 1, 2, 3])
         .lte('next_review', nowWithBuffer)
+        .lte('buried_until', epochDay)
+        .order('next_review', { ascending: true })
+        .order('id', { ascending: true })
+        .limit(50);
+
+      if (level && level !== 'ALL') {
+        query = query.eq('level', level);
+      }
+
+      const { data, error } = await query;
+      if (error) throw error;
+      const rows = data || [];
+      if (rows.length === 0) return rows;
+
+      // Keep parity with learn queue mapping: drop progress rows whose dictionary
+      // content no longer exists.
+      const itemIds = [...new Set(rows.map((row) => Number(row.item_id)).filter(Number.isFinite))];
+      if (itemIds.length === 0) return [];
+
+      const tableName = itemType === 'word' ? 'dictionary_words' : 'dictionary_grammars';
+      const { data: contentRows, error: contentError } = await supabase
+        .from(tableName)
+        .select('id')
+        .in('id', itemIds);
+
+      if (contentError) throw contentError;
+
+      const existingIds = new Set((contentRows || []).map((row) => Number(row.id)));
+      return rows.filter((row) => existingIds.has(Number(row.item_id)));
+    };
+
+    const [dueWordItems, dueGrammarItems] = await Promise.all([
+      fetchDueByType('word', config.wordLevel),
+      fetchDueByType('grammar', config.grammarLevel)
     ]);
+
+    const countStates = (items: Array<{ state: number | null }>) => {
+      let dueNew = 0;
+      let dueLearning = 0;
+      let dueReview = 0;
+
+      items.forEach(item => {
+        const state = Number(item.state);
+        if (state === 0) dueNew++;
+        else if (state === 1 || state === 3) dueLearning++;
+        else if (state === 2) dueReview++;
+      });
+
+      return {
+        dueNew,
+        dueLearning,
+        dueReview,
+        dueTotal: items.length
+      };
+    };
+
+    const wordCounts = countStates(dueWordItems as Array<{ state: number | null }>);
+    const grammarCounts = countStates(dueGrammarItems as Array<{ state: number | null }>);
 
     const { data: recentRecords } = await supabase
       .from('study_records')
@@ -109,8 +146,14 @@ export const statisticsService = {
       todayLearnedGrammars: learnedGrammars,
       todayReviewedWords: record?.reviewed_words || 0,
       todayReviewedGrammars: record?.reviewed_grammars || 0,
-      dueWords: wordsRes.count || 0,
-      dueGrammars: grammarsRes.count || 0,
+      dueWords: wordCounts.dueTotal,
+      dueGrammars: grammarCounts.dueTotal,
+      dueNewWords: wordCounts.dueNew,
+      dueLearningWords: wordCounts.dueLearning,
+      dueReviewWords: wordCounts.dueReview,
+      dueNewGrammars: grammarCounts.dueNew,
+      dueLearningGrammars: grammarCounts.dueLearning,
+      dueReviewGrammars: grammarCounts.dueReview,
       streak,
       dailyGoal: config.dailyGoal,
       grammarDailyGoal: config.grammarDailyGoal,
@@ -181,7 +224,6 @@ export const statisticsService = {
     let bestDayCount = 0;
     let bestDayDate = 0;
     let totalActivity = 0;
-    let hasToday = false;
 
     if (data && data.length > 0) {
       totalActiveDays = data.length;
@@ -206,7 +248,6 @@ export const statisticsService = {
           }
 
           if (d === todayEpoch) {
-            hasToday = true;
             currentStreak++;
             expected--;
           } else if (d === expected) {
@@ -615,7 +656,7 @@ export const statisticsService = {
             id: grammar.id,
             japanese: grammar.title,
             hiragana: '',
-            chinese: (grammar.content as any)?.[0]?.explanation || '',
+            chinese: grammar.content?.[0]?.explanation || '',
             level: grammar.level,
             source: 'LEARNED'
           });
@@ -638,19 +679,17 @@ export const statisticsService = {
 
     const [
       todayStats,
-      wordsCount,
-      grammarsCount,
+      trackedCount,
       masteredCount,
       studyRecords
     ] = await Promise.all([
       this.getTodayStats(userId, resetHour),
-      supabase.from('dictionary_words').select('*', { count: 'exact', head: true }),
-      supabase.from('dictionary_grammars').select('*', { count: 'exact', head: true }),
+      supabase.from('user_progress').select('*', { count: 'exact', head: true }).eq('user_id', userId).neq('state', -1),
       supabase.from('user_progress').select('*', { count: 'exact', head: true }).eq('user_id', userId).eq('state', 2),
       supabase.from('study_records').select('date').eq('user_id', userId)
     ]);
 
-    const totalWords = (wordsCount.count || 0) + (grammarsCount.count || 0);
+    const totalWords = trackedCount.count || 0;
     const totalMastered = masteredCount.count || 0;
     
     // Calculate week study days
@@ -664,7 +703,7 @@ export const statisticsService = {
       todayTotalLearned: todayStats.todayLearnedWords + todayStats.todayLearnedGrammars,
       todayLearned: todayStats.todayLearnedWords + todayStats.todayLearnedGrammars, // Alias for carousel
       dailyGoal: todayStats.dailyGoal + todayStats.grammarDailyGoal,
-      unmasteredCount: totalWords - totalMastered,
+      unmasteredCount: Math.max(0, totalWords - totalMastered),
       studyStreak: todayStats.streak,
       dueCount: todayStats.dueWords + todayStats.dueGrammars,
       totalStudyDays: studyRecords.data?.length || 0,

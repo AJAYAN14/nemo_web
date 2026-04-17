@@ -1,11 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabase";
 import { ChevronLeft } from "lucide-react";
-import clsx from "clsx";
 import styles from "./page.module.css";
 import { statisticsService } from "@/lib/services/statisticsService";
 import { HeatmapGrid } from "@/components/statistics/HeatmapGrid";
@@ -14,17 +13,17 @@ import { SakuraLoader } from "@/components/common/SakuraLoader";
 
 export default function HeatmapPage() {
   const router = useRouter();
-  const [resetHour, setResetHour] = useState(4);
-
-  useEffect(() => {
-    const stored = localStorage.getItem('nemo_study_settings');
-    if (stored) {
-      try {
-        const config = JSON.parse(stored);
-        if (config.resetHour !== undefined) setResetHour(config.resetHour);
-      } catch { }
+  const [resetHour] = useState(() => {
+    if (typeof window === "undefined") return 4;
+    const stored = localStorage.getItem("nemo_study_settings");
+    if (!stored) return 4;
+    try {
+      const config = JSON.parse(stored) as { resetHour?: number };
+      return typeof config.resetHour === "number" ? config.resetHour : 4;
+    } catch {
+      return 4;
     }
-  }, []);
+  });
 
   const { data: user } = useQuery({
     queryKey: ["current-user"],

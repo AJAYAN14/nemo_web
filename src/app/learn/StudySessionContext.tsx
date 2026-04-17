@@ -1,15 +1,15 @@
 "use client";
 
 import React, { createContext, useContext, useEffect, useMemo, useRef, useState, useCallback } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { 
   StudyItem, 
   LearningStatus, 
   StudyConfig, 
-  LearningMode, 
-  SlideDirection 
+  LearningMode
 } from '@/types/study';
 import { FsrsRating } from '@/lib/srs/fsrs';
-import { useSessionState, SessionAction } from '@/hooks/learn/useSessionState';
+import { useSessionState } from '@/hooks/learn/useSessionState';
 import { useSessionUndo, UndoSnapshot } from '@/hooks/learn/useSessionUndo';
 import { useSessionSync } from '@/hooks/learn/useSessionSync';
 import { sessionPersistence } from '@/lib/services/sessionPersistence';
@@ -62,6 +62,7 @@ interface StudySessionProviderProps {
 }
 
 export function StudySessionProvider({ userId, initialItems, config, mode, children }: StudySessionProviderProps) {
+  const queryClient = useQueryClient();
   // 1. Initial State Resolution (Restore from sessionStorage)
   const savedSession = useMemo(() => sessionPersistence.loadSession('learn'), []);
   const restoredPool = useMemo(() => {
@@ -79,17 +80,27 @@ export function StudySessionProvider({ userId, initialItems, config, mode, child
         dueTime: Number.isFinite(dueTimes[item.id]) ? dueTimes[item.id] : item.dueTime
       }));
 
-    return restored.length > 0 ? restored : null;
+    // Keep resume behavior, but append newly due items that were not in the
+    // saved snapshot so Home counters and Learn queue stay consistent.
+    const restoredIds = new Set(restored.map((item) => item.id));
+    const newlyDueItems = initialItems.filter((item) => !restoredIds.has(item.id));
+
+    const mergedPool = [...restored, ...newlyDueItems];
+
+    return mergedPool.length > 0 ? mergedPool : null;
   }, [savedSession, initialItems]);
 
   const initialPool = restoredPool || initialItems;
   const initialIndex = (restoredPool && savedSession) ? (savedSession.currentIndex < initialPool.length ? savedSession.currentIndex : 0) : 0;
   const initialCompleted = savedSession?.completed ?? 0;
-  const initialWaiting = (restoredPool && savedSession?.waitingUntil && savedSession.waitingUntil > Date.now()) ? savedSession.waitingUntil : null;
+  const initialWaiting = (restoredPool && savedSession?.waitingUntil) ? savedSession.waitingUntil : null;
+  const initialUndoStack = Array.isArray(savedSession?.undoStack)
+    ? (savedSession.undoStack as UndoSnapshot[])
+    : [];
 
   // 2. Specialized Hooks
   const { state, dispatch } = useSessionState(initialPool, initialIndex, initialCompleted, initialWaiting);
-  const { canUndo, pushSnapshot, performUndo, clearUndo, undoStack } = useSessionUndo(userId, savedSession?.undoStack as any[]);
+  const { canUndo, pushSnapshot, performUndo, undoStack } = useSessionUndo(userId, initialUndoStack);
   const { performConsistencyCheck } = useSessionSync();
 
   // 3. UI Settings State
@@ -118,7 +129,7 @@ export function StudySessionProvider({ userId, initialItems, config, mode, child
       waitingUntil: nextWaiting,
       steps,
       dueTimes,
-      undoStack: undoStack as any[],
+      undoStack,
       savedAt: Date.now()
     });
   }, [undoStack]);
@@ -170,6 +181,13 @@ export function StudySessionProvider({ userId, initialItems, config, mode, child
     if (Date.now() - lastRatingTime.current < RATING_DEBOUNCE_MS) return;
     lastRatingTime.current = Date.now();
 
+    const actionRow = studyService.evaluateRatingAction(currentItem, rating, config);
+    const statsField = studyService.getCompletionStudyDeltaField(
+      currentItem.type,
+      currentItem.progress.state,
+      actionRow.type
+    );
+
     // Snapshot
     pushSnapshot({
       actionType: 'rate',
@@ -184,13 +202,13 @@ export function StudySessionProvider({ userId, initialItems, config, mode, child
       previousProgress: structuredClone(currentItem.progress),
       // Capture the locked learning day so undo rolls back stats on the correct
       // day even if the user crosses midnight before pressing undo.
-      epochDay: lockedDay
+      epochDay: lockedDay,
+      statsField
     });
 
     dispatch({ type: 'SET_STATUS', status: LearningStatus.Processing });
 
     try {
-      const actionRow = studyService.evaluateRatingAction(currentItem, rating, config);
       const updatedProgress = await studyService.processReview(userId, { item: currentItem, rating }, config, lockedDay);
 
       const isGraduated = actionRow.type === 'graduate' || actionRow.type === 'leech';
@@ -203,16 +221,19 @@ export function StudySessionProvider({ userId, initialItems, config, mode, child
         const [movedItem] = nextPool.splice(state.currentIndex, 1);
         nextPool.push({
           ...movedItem,
+          progress: updatedProgress,
           step: actionRow.nextStep,
           dueTime: Date.now() + actionRow.delayMins * 60000,
           badge: (rating === FsrsRating.Again || updatedProgress.state === 1 || updatedProgress.state === 3) ? 'RELEARN' : movedItem.badge,
-          progress: updatedProgress
         });
       }
 
       if (nextPool.length === 0) {
         dispatch({ type: 'SET_STATUS', status: LearningStatus.SessionCompleted });
         sessionPersistence.clearSession('learn');
+        // Invalidate relevant queries to ensure dashboard sync
+        queryClient.invalidateQueries({ queryKey: ['due-items'] });
+        queryClient.invalidateQueries({ queryKey: ['today-stats'] });
       } else {
         const result = selectNext(nextPool, state.currentIndex);
         const nextIdx = result.type === 'NEXT' ? (result.index >= nextPool.length ? 0 : result.index) : state.currentIndex;
@@ -230,10 +251,15 @@ export function StudySessionProvider({ userId, initialItems, config, mode, child
         persist(nextPool, nextIdx, nextCompleted, nextWaiting);
         setShowUndoHint(true);
       }
-    } catch (e: any) {
+    } catch (e: unknown) {
       console.error("[StudySession] Rate failed:", e);
-      if (e.message?.includes('STALE_DATA_CONFLICT')) {
-        const itemName = currentItem.type === 'word' ? (currentItem.content as any).japanese : (currentItem.content as any).title;
+      const errorMessage = e instanceof Error ? e.message : String(e);
+      if (errorMessage.includes('STALE_DATA_CONFLICT')) {
+        const itemName = currentItem.type === 'word' && 'japanese' in currentItem.content
+          ? currentItem.content.japanese
+          : currentItem.type === 'grammar' && 'title' in currentItem.content
+            ? currentItem.content.title
+            : null;
         dispatch({ type: 'SET_SYNC_CONFLICT', itemName: itemName || 'card' });
         const prunedPool = state.wordList.filter(i => i.id !== currentItem.id);
         dispatch({ type: 'SET_POOL', pool: prunedPool, index: state.currentIndex >= prunedPool.length ? 0 : state.currentIndex, completed: state.completedThisSession, waitingUntil: state.waitingUntil });
@@ -241,7 +267,7 @@ export function StudySessionProvider({ userId, initialItems, config, mode, child
          dispatch({ type: 'SET_STATUS', status: LearningStatus.Learning });
       }
     }
-  }, [currentItem, state, config, userId, lockedDay, pushSnapshot, selectNext, persist, dispatch]);
+  }, [currentItem, state, config, userId, lockedDay, pushSnapshot, selectNext, persist, dispatch, queryClient]);
 
   const undo = useCallback(async () => {
     if (!canUndo || state.status === LearningStatus.Processing) return;
@@ -258,7 +284,7 @@ export function StudySessionProvider({ userId, initialItems, config, mode, child
         });
         persist(snapshot.wordList, snapshot.currentIndex, snapshot.completedThisSession, snapshot.waitingUntil);
       }
-    } catch (e) {
+    } catch {
       dispatch({ type: 'SET_STATUS', status: state.waitingUntil ? LearningStatus.Waiting : LearningStatus.Learning });
     }
   }, [canUndo, state.status, state.waitingUntil, performUndo, lockedDay, persist, dispatch]);
@@ -283,7 +309,7 @@ export function StudySessionProvider({ userId, initialItems, config, mode, child
           
           persist(nextPool, nextIdx, state.completedThisSession, nextWaiting);
        }
-     } catch (e) {
+     } catch {
        dispatch({ type: 'SET_STATUS', status: LearningStatus.Learning });
      }
   }, [currentItem, state, selectNext, persist, dispatch]);
@@ -308,7 +334,7 @@ export function StudySessionProvider({ userId, initialItems, config, mode, child
           
           persist(nextPool, nextIdx, state.completedThisSession, nextWaiting);
        }
-     } catch (e) {
+     } catch {
        dispatch({ type: 'SET_STATUS', status: LearningStatus.Learning });
      }
   }, [currentItem, state, lockedDay, selectNext, persist, dispatch]);

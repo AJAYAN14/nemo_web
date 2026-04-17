@@ -153,7 +153,11 @@ export function useReviewSession(
   }, []);
 
   // --- Select next item with learn-ahead & waiting logic ---
-  const selectNext = useCallback((nextPool: StudyItem[], preferredIdx: number) => {
+  const selectNext = useCallback((
+    nextPool: StudyItem[],
+    preferredIdx: number,
+    nextCompleted: number = completedThisSession
+  ) => {
     if (nextPool.length === 0) {
       setPool([]);
       setStatus('SessionCompleted');
@@ -170,10 +174,18 @@ export function useReviewSession(
     });
 
     if (result.type === 'WAIT') {
+      const waitingIndex = result.index >= nextPool.length ? 0 : result.index;
       setPool(nextPool);
+      setCurrentIndex(waitingIndex);
       setStatus('Waiting');
       setWaitingUntil(result.waitingUntil);
       setIsProcessing(false);
+      sessionPersistence.saveSession('review', buildSessionState(
+        nextPool,
+        waitingIndex,
+        nextCompleted,
+        result.waitingUntil
+      ));
       return;
     }
 
@@ -188,7 +200,7 @@ export function useReviewSession(
     sessionPersistence.saveSession('review', buildSessionState(
       nextPool,
       nextIndex >= nextPool.length ? 0 : nextIndex,
-      completedThisSession,
+      nextCompleted,
       null
     ));
   }, [config.learnAheadLimit, completedThisSession, buildSessionState]);
@@ -236,8 +248,10 @@ export function useReviewSession(
       const updatedProgress = await studyService.processReview(userId, { item: itemToProcess, rating }, config, epochDay);
 
       // 3. Commit local queue transitions only after backend success.
+      let nextCompleted = completedThisSession;
       if (isGraduated || isLeech) {
-        setCompletedThisSession(prev => prev + 1);
+        nextCompleted = completedThisSession + 1;
+        setCompletedThisSession(nextCompleted);
         nextPool.splice(currentIndexAtRating, 1);
       } else {
         if (actionRow.type !== 'requeue') {
@@ -254,7 +268,7 @@ export function useReviewSession(
         nextPool.push(updatedItem);
       }
 
-      selectNext(nextPool, currentIndexAtRating);
+      selectNext(nextPool, currentIndexAtRating, nextCompleted);
       setShowUndoHint(true);
     } catch (e) {
       console.error('[ReviewSession] processReview failed, rollback to snapshot:', e);
@@ -331,7 +345,7 @@ export function useReviewSession(
     } finally {
       setIsProcessing(false);
     }
-  }, [userId, buildSessionState, isProcessing, config.resetHour]);
+  }, [userId, buildSessionState, isProcessing]);
 
   // --- Resume from Waiting ---
   const resumeFromWaiting = useCallback(() => {
