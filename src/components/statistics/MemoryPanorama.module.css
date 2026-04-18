@@ -3,27 +3,33 @@
 }
 
 .title {
-  font-size: 0.8rem;
+  font-size: 0.875rem;
   font-weight: 800;
-  color: var(--muted);
-  margin-bottom: 12px;
+  color: #64748b;
+  margin-bottom: 1.5rem;
   display: flex;
   justify-content: space-between;
   align-items: center;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
 }
 
 .totalCount {
-  color: var(--foreground);
+  color: #1e293b;
   font-weight: 900;
+  background: #f1f5f9;
+  padding: 0.2rem 0.6rem;
+  border-radius: 0.5rem;
 }
 
 .bar {
   display: flex;
-  height: 8px;
+  height: 12px;
   border-radius: 100px;
   overflow: hidden;
   background: #f1f5f9;
   width: 100%;
+  margin-bottom: 1rem;
 }
 
 .segment {
@@ -39,8 +45,9 @@
 .legend {
   display: flex;
   justify-content: space-between;
-  margin-top: 10px;
-  gap: 8px;
+  margin-top: 1.25rem;
+  gap: 1rem;
+  padding-bottom: 1.5rem;
 }
 
 .legendItem {

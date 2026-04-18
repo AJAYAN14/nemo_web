@@ -1,7 +1,8 @@
-﻿"use client";
+"use client";
 
 import React, { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useQuery } from "@tanstack/react-query";
 import {
   ChevronRight,
   RotateCcw,
@@ -15,7 +16,8 @@ import {
   Database,
   Wand2,
   LayoutList,
-  Grid3X3
+  Grid3X3,
+  ArrowRight
 } from "lucide-react";
 import clsx from "clsx";
 import { motion } from "framer-motion";
@@ -61,33 +63,38 @@ interface ProgressItemProps {
 
 export default function ProgressPage() {
   const router = useRouter();
-  const [data, setData] = useState<DashboardStats | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [greeting, setGreeting] = useState("");
+  const [currentDate, setCurrentDate] = useState("");
 
   useEffect(() => {
-    async function fetchData() {
-      try {
-        const {
-          data: { user }
-        } = await supabase.auth.getUser();
+    const hour = new Date().getHours();
+    const timeGreeting = hour < 5 ? "夜深了" :
+                         hour < 12 ? "早上好" :
+                         hour < 18 ? "下午好" : "晚上好";
+    setGreeting(timeGreeting);
 
-        if (!user) {
-          router.push("/login");
-          return;
-        }
+    const formatter = new Intl.DateTimeFormat('zh-CN', { weekday: 'long', month: 'long', day: 'numeric' });
+    setCurrentDate(formatter.format(new Date()));
+  }, []);
 
-        const config = await settingsService.getStudyConfig();
-        const stats = await statisticsService.getDashboardSummary(user.id, config.resetHour || 4);
-        setData(stats);
-      } catch (error) {
-        console.error("Failed to fetch dashboard stats:", error);
-      } finally {
-        setLoading(false);
-      }
+  const { data: user, isLoading: userLoading } = useQuery({
+    queryKey: ["current-user"],
+    queryFn: async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      return user;
     }
+  });
 
-    fetchData();
-  }, [router]);
+  const { data, isLoading: dataLoading } = useQuery({
+    queryKey: ["progress-summary", user?.id],
+    queryFn: async () => {
+      const config = await settingsService.getStudyConfig();
+      return await statisticsService.getDashboardSummary(user!.id, config.resetHour || 4);
+    },
+    enabled: !!user,
+  });
+
+  const loading = userLoading || dataLoading;
 
   if (loading) {
     return (
@@ -100,10 +107,16 @@ export default function ProgressPage() {
   if (!data) return null;
 
   return (
-    <main className={styles.container}>
-      <header className={styles.header}>
-        <h1 className={styles.title}>进度</h1>
-      </header>
+    <main className={styles.mainContainer}>
+      <div className={styles.contentWrapper}>
+        <header className={styles.header}>
+          <div className={styles.headerGroup}>
+            <h1 className={styles.greeting}>
+              你的成长全景，{user?.user_metadata?.full_name || user?.email?.split('@')[0] || '同学'}
+            </h1>
+            <p className={styles.date}>{currentDate}</p>
+          </div>
+        </header>
 
       <section className={styles.carouselContainer}>
         <LearningSummaryCarousel data={data} />
@@ -117,11 +130,10 @@ export default function ProgressPage() {
             color="#4F46E5"
             title="今日到期复习"
             subtitle="核心复习任务"
-            count={data.dueCount}
             onClick={() => router.push("/review")}
           />
           <ProgressItem
-            icon={<RotateCcw />}
+            icon={<Activity />}
             color="#10B981"
             title="专项训练"
             subtitle="按主题强化练习"
@@ -135,21 +147,21 @@ export default function ProgressPage() {
         <div className={styles.listCard}>
           <ProgressItem
             icon={<PieChart />}
-            color="#4F46E5"
+            color="#6366f1"
             title="学习日历"
             subtitle="学习计划与每日记录"
             onClick={() => router.push("/progress/calendar")}
           />
           <ProgressItem
             icon={<LineChart />}
-            color="#ef4444"
+            color="#f43f5e"
             title="今日统计"
             subtitle="查看今日学习明细"
             onClick={() => router.push("/statistics/today")}
           />
           <ProgressItem
             icon={<BarChart3 />}
-            color="#af52de"
+            color="#8b5cf6"
             title="历史统计"
             subtitle="查看历史学习数据"
             onClick={() => router.push("/statistics/history")}
@@ -163,34 +175,35 @@ export default function ProgressPage() {
           />
           <ProgressItem
             icon={<Database />}
-            color="#4F46E5"
+            color="#0ea5e9"
             title="专项词汇"
             subtitle="按分类查看词汇"
             onClick={() => router.push("/library/specialized?source=vocabulary")}
           />
           <ProgressItem
             icon={<Book />}
-            color="#4F46E5"
+            color="#6366f1"
             title="语法列表"
             subtitle="语法知识库"
             onClick={() => router.push("/library?tab=grammars")}
           />
           <ProgressItem
             icon={<Wand2 />}
-            color="#ef4444"
+            color="#f59e0b"
             title="复学清单"
             subtitle="难点项召回与复习"
             onClick={() => router.push("/review/leech")}
           />
           <ProgressItem
             icon={<Grid3X3 />}
-            color="#F43F5E"
+            color="#f43f5e"
             title="五十音图"
             subtitle="基础假名发音参考"
             onClick={() => router.push("/library/kana")}
           />
         </div>
       </section>
+      </div>
     </main>
   );
 }
@@ -206,7 +219,7 @@ function LearningSummaryCarousel({ data }: { data: DashboardStats }) {
       id: "overview",
       title: "今日概览",
       icon: <Calendar size={52} />,
-      color: "#4F46E5",
+      color: "linear-gradient(135deg, #6366f1, #4f46e5)",
       main: { label: "今日已学", value: data.todayLearned, unit: "项" },
       topRight: { label: "待复习", value: data.dueCount, unit: "项" },
       bottomRight: { label: "目标完成", value: completionRate, unit: "%" },
@@ -217,7 +230,7 @@ function LearningSummaryCarousel({ data }: { data: DashboardStats }) {
       id: "track",
       title: "学习轨迹",
       icon: <Activity size={52} />,
-      color: "#10B981",
+      color: "linear-gradient(135deg, #10b981, #059669)",
       main: { label: "连续学习", value: data.studyStreak, unit: "天" },
       topRight: { label: "累计掌握", value: data.masteredCount, unit: "项" },
       bottomRight: { label: "待学习", value: data.unmasteredCount, unit: "项" },
@@ -227,7 +240,7 @@ function LearningSummaryCarousel({ data }: { data: DashboardStats }) {
       id: "growth",
       title: "成长总览",
       icon: <TrendingUp size={52} />,
-      color: "#F4B73F",
+      color: "linear-gradient(135deg, #f59e0b, #d97706)",
       main: { label: "总进度", value: Math.round(data.progress * 100), unit: "%" },
       topRight: { label: "累计学习", value: data.totalStudyDays, unit: "天" },
       bottomRight: { label: "本周学习", value: data.weekStudyDays, unit: "天" },
@@ -286,7 +299,7 @@ function LearningSummaryCarousel({ data }: { data: DashboardStats }) {
 function SummaryCard({ page }: { page: SummaryPage }) {
   return (
     <div className={styles.bentoGrid}>
-      <div className={styles.mainTile} style={{ backgroundColor: page.color }}>
+      <div className={styles.mainTile} style={{ background: page.color }}>
         <div className={styles.decoIcon}>{page.icon}</div>
         <div className={styles.mainTileContent}>
           <VisualHint type={page.visualType} progress={page.progressValue} />
