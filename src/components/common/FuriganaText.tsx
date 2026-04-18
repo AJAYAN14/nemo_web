@@ -1,7 +1,7 @@
 import React from "react";
 
 interface FuriganaTextProps {
-  text: string;
+  text?: string;
   className?: string;
   furiganaColor?: string;
 }
@@ -10,7 +10,11 @@ interface FuriganaTextProps {
  * Japanese Furigana Component using semantic <ruby> tags.
  * Parses "Kanji[Reading]" format.
  */
-export function FuriganaText({ text, className, furiganaColor }: FuriganaTextProps) {
+export function FuriganaText({ text, className = '', furiganaColor }: FuriganaTextProps) {
+  if (!text) {
+    return <span className={className}></span>;
+  }
+
   // Regex for Kanji followed by bracketed reading: [Kanji][Reading]
   // Supports CJK Unified Ideographs and iterators like 々
   const pattern = /([\u4E00-\u9FFF\u3400-\u4DBF々]+)\[([^\]]+)\]/g;

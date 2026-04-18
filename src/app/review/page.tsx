@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import React, { useEffect } from "react";
 import { useRouter } from "next/navigation";
@@ -46,7 +46,7 @@ export default function ReviewPage() {
       );
 
       const dueReviewItems = allDue.filter(
-        (item) => item.progress.reps > 0 && !!item.progress.last_review
+        (item) => item.progress.state === 2
       );
 
       let resumeItems: typeof dueReviewItems = [];
@@ -57,7 +57,7 @@ export default function ReviewPage() {
         if (missingIds.length > 0) {
           const restored = await studyService.getSessionItemsByProgressIds(user.id, missingIds);
           resumeItems = restored.filter(
-            (item) => item.progress.reps > 0 && !!item.progress.last_review
+            (item) => item.progress.state === 2
           );
         }
       }

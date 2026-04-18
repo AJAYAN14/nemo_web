@@ -2,122 +2,276 @@
 
 import React from "react";
 import { 
+  Calendar, 
+  XCircle, 
   Star, 
-  AlertCircle, 
-  Trophy, 
-  Gamepad2, 
-  GraduationCap,
-  ChevronRight,
-  BookMarked
+  CheckSquare, 
+  Type, 
+  LayoutGrid, 
+  Layers,
+  Infinity as InfinityIcon,
+  Bolt,
+  Trophy
 } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
 import styles from "./test.module.css";
+import { ClayCard } from "@/components/clay/ClayCard";
+import { useState, useEffect, useCallback } from "react";
+import Link from "next/link";
 
-interface TestCardProps {
-  icon: React.ReactElement<{ size?: number; strokeWidth?: number }>;
-  color: string;
-  title: string;
-  count: string;
-  subtitle: string;
-}
 
-interface TestListItemProps {
-  icon: React.ReactElement<{ size?: number }>;
-  color: string;
-  title: string;
-  subtitle: string;
+const containerVariants = {
+  hidden: { opacity: 0 },
+  visible: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.1,
+    },
+  },
+};
+
+const itemVariants = {
+  hidden: { opacity: 0, y: 20 },
+  visible: { opacity: 1, y: 0, transition: { duration: 0.4, ease: [0.22, 1, 0.36, 1] as any } },
+};
+
+const CAROUSEL_AUTO_SCROLL_MS = 5000;
+
+function CircularProgress({ percent, color, label }: { percent: number; color: string; label: string }) {
+  const radius = 36;
+  const circumference = 2 * Math.PI * radius;
+  const offset = circumference - (percent / 100) * circumference;
+
+  return (
+    <div className={styles.ringWrapper}>
+      <div className={styles.progressRing}>
+        <svg width="84" height="84" viewBox="0 0 84 84">
+          <circle
+            className={styles.ringBg}
+            cx="42"
+            cy="42"
+            r={radius}
+          />
+          <motion.circle
+            className={styles.ringIndicator}
+            cx="42"
+            cy="42"
+            r={radius}
+            stroke={color}
+            strokeDasharray={circumference}
+            initial={{ strokeDashoffset: circumference }}
+            animate={{ strokeDashoffset: offset }}
+            transition={{ duration: 1, ease: "easeOut" }}
+          />
+        </svg>
+        <div className={styles.ringText}>
+          <div className={styles.ringPercent} style={{ color }}>
+            {percent}<span className={styles.ringUnit}>%</span>
+          </div>
+        </div>
+      </div>
+      <span className={styles.ringLabel}>{label}</span>
+    </div>
+  );
 }
 
 export default function TestPage() {
+  const [activeSlide, setActiveSlide] = useState(0);
+
+  const slides = [
+    {
+      title: "今日测试",
+      icon: <Bolt size={18} />,
+      accent: "#4F46E5",
+      stats: [
+        { label: "已测题目", value: "12", color: "#1F2937" },
+        { label: "连续测试", value: "5 天", color: "#4F46E5" }
+      ],
+      accuracy: 88,
+      accuracyLabel: "今日正确率"
+    },
+    {
+      title: "总体统计",
+      icon: <Trophy size={18} />,
+      accent: "#F97316",
+      stats: [
+        { label: "累计测试", value: "156", color: "#1F2937" },
+        { label: "最高连签", value: "12 天", color: "#F97316" }
+      ],
+      accuracy: 74,
+      accuracyLabel: "累计正确率"
+    }
+  ];
+
+  const nextSlide = useCallback(() => {
+    setActiveSlide((prev) => (prev + 1) % slides.length);
+  }, [slides.length]);
+
+  useEffect(() => {
+    const timer = setInterval(nextSlide, CAROUSEL_AUTO_SCROLL_MS);
+    return () => clearInterval(timer);
+  }, [nextSlide]);
+
   return (
-    <main className={styles.container}>
-      {/* Immersive Header */}
-      <header className={styles.header}>
+    <motion.main 
+      className={styles.container}
+      initial="hidden"
+      animate="visible"
+      variants={containerVariants}
+    >
+      <motion.header className={styles.header} variants={itemVariants}>
         <h1 className={styles.title}>测试</h1>
-      </header>
+      </motion.header>
 
-      {/* 1. Collections & Review lists */}
-      <section className={styles.section}>
-        <h2 className={styles.sectionTitle}>收藏与错题</h2>
+      {/* --- Today Overview Carousel --- */}
+      <motion.section variants={itemVariants} className={styles.overviewSection}>
+        <div className={styles.overviewCard}>
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={activeSlide}
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -20 }}
+              transition={{ duration: 0.3 }}
+              className={styles.carouselItem}
+            >
+              <div className={styles.overviewHeader}>
+                <div className={styles.headerLeft}>
+                  <div className={styles.iconBadge} style={{ backgroundColor: slides[activeSlide].accent }}>
+                    {slides[activeSlide].icon}
+                  </div>
+                  <span className={styles.overviewTitle}>{slides[activeSlide].title}</span>
+                </div>
+                <button className={styles.calendarBtn}>
+                  <Calendar size={18} />
+                </button>
+              </div>
+              
+              <div className={styles.contentWrapper}>
+                <div className={styles.statsColumn}>
+                  {slides[activeSlide].stats.map((stat, idx) => (
+                    <div key={idx} className={styles.miniStatItem}>
+                      <span className={styles.miniStatValue} style={{ color: stat.color }}>{stat.value}</span>
+                      <span className={styles.miniStatLabel}>{stat.label}</span>
+                    </div>
+                  ))}
+                </div>
+
+                <CircularProgress 
+                  percent={slides[activeSlide].accuracy} 
+                  color={slides[activeSlide].accuracy < 60 ? "#EF4444" : slides[activeSlide].accuracy < 85 ? "#F97316" : "#10B981"}
+                  label={slides[activeSlide].accuracyLabel}
+                />
+              </div>
+            </motion.div>
+          </AnimatePresence>
+        </div>
+
+        <div className={styles.footerRow}>
+          <div className={styles.indicatorDots}>
+            {slides.map((_, idx) => (
+              <button
+                key={idx}
+                onClick={() => setActiveSlide(idx)}
+                className={activeSlide === idx ? styles.dotActive : styles.dot}
+                style={{ border: 'none', padding: 0, cursor: 'pointer', outline: 'none' }}
+              />
+            ))}
+          </div>
+        </div>
+      </motion.section>
+
+      {/* --- Review and Recap --- */}
+      <motion.section className={styles.section} variants={itemVariants}>
+        <h2 className={styles.sectionTitle}>复习与回顾</h2>
         <div className={styles.grid}>
-          <TestCard 
-            icon={<Star />} 
-            color="#fbbf24" 
-            title="我的收藏" 
-            count="128" 
-            subtitle="已收藏的单词与句子"
-          />
-          <TestCard 
-            icon={<AlertCircle />} 
-            color="#ef4444" 
-            title="错题本" 
-            count="45" 
-            subtitle="重点攻克薄弱环节"
-          />
+          <div className={styles.gridCard}>
+            <div className={`${styles.iconBox} ${styles.bgRed}`}>
+              <XCircle size={24} />
+            </div>
+            <div className={styles.itemInfo}>
+              <span className={styles.itemTitle}>我的错题</span>
+              <span className={styles.itemSubtitle}>0 个</span>
+            </div>
+          </div>
+          <div className={styles.gridCard}>
+            <div className={`${styles.iconBox} ${styles.bgOrange}`}>
+              <Star size={24} />
+            </div>
+            <div className={styles.itemInfo}>
+              <span className={styles.itemTitle}>我的收藏</span>
+              <span className={styles.itemSubtitle}>0 个</span>
+            </div>
+          </div>
         </div>
-      </section>
+      </motion.section>
 
-      {/* 2. Challenge & Test Modes */}
-      <section className={styles.section}>
-        <h2 className={styles.sectionTitle}>挑战与考核</h2>
-        <div className={styles.listCard}>
-          <TestListItem 
-            icon={<GraduationCap />} 
-            color="#8b5cf6" 
-            title="JLPT 模拟测试" 
-            subtitle="全真模拟考试环境" 
-          />
-          <TestListItem 
-            icon={<Gamepad2 />} 
-            color="#06b6d4" 
-            title="词汇消消乐" 
-            subtitle="寓教于乐的趣味练习" 
-          />
-          <TestListItem 
-            icon={<Trophy />} 
-            color="#f97316" 
-            title="速度挑战" 
-            subtitle="挑战你的反应极限" 
-          />
-          <TestListItem 
-            icon={<BookMarked />} 
-            color="#10b981" 
-            title="完形填空" 
-            subtitle="深度考察语法运用" 
-          />
+      {/* --- Basic Drills --- */}
+      <motion.section className={styles.section} variants={itemVariants}>
+        <h2 className={styles.sectionTitle}>基础练习</h2>
+        <div className={styles.grid}>
+          <Link href="/test/settings/multiple_choice" className={styles.cardLink}>
+            <div className={styles.gridCard}>
+              <div className={`${styles.iconBox} ${styles.bgGreen}`}>
+                <CheckSquare size={24} />
+              </div>
+              <div className={styles.itemInfo}>
+                <span className={styles.itemTitle}>选择题</span>
+                <span className={styles.itemSubtitle}>快速认知</span>
+              </div>
+            </div>
+          </Link>
+          <Link href="/test/settings/typing" className={styles.cardLink}>
+            <div className={styles.gridCard}>
+              <div className={`${styles.iconBox} ${styles.bgIndigo}`}>
+                <Type size={24} />
+              </div>
+              <div className={styles.itemInfo}>
+                <span className={styles.itemTitle}>手打题</span>
+                <span className={styles.itemSubtitle}>拼写强化</span>
+              </div>
+            </div>
+          </Link>
+          <Link href="/test/settings/card_matching" className={styles.cardLink}>
+            <div className={styles.gridCard}>
+              <div className={`${styles.iconBox} ${styles.bgBlue}`}>
+                <LayoutGrid size={24} />
+              </div>
+              <div className={styles.itemInfo}>
+                <span className={styles.itemTitle}>卡片题</span>
+                <span className={styles.itemSubtitle}>翻牌记忆</span>
+              </div>
+            </div>
+          </Link>
+          <Link href="/test/settings/sorting" className={styles.cardLink}>
+            <div className={styles.gridCard}>
+              <div className={`${styles.iconBox} ${styles.bgPurple}`}>
+                <Layers size={24} />
+              </div>
+              <div className={styles.itemInfo}>
+                <span className={styles.itemTitle}>排序题</span>
+                <span className={styles.itemSubtitle}>逻辑构建</span>
+              </div>
+            </div>
+          </Link>
         </div>
-      </section>
-    </main>
-  );
-}
+      </motion.section>
 
-function TestCard({ icon, color, title, count, subtitle }: TestCardProps) {
-  return (
-    <div className={styles.testCard}>
-      <div className={styles.cardIcon} style={{ color }}>
-        {React.cloneElement(icon, { size: 32, strokeWidth: 2.5 })}
-      </div>
-      <div className={styles.cardContent}>
-        <div className={styles.cardTop}>
-          <span className={styles.cardTitle}>{title}</span>
-          <span className={styles.cardCount}>{count}</span>
-        </div>
-        <p className={styles.cardSubtitle}>{subtitle}</p>
-      </div>
-    </div>
-  );
-}
-
-function TestListItem({ icon, color, title, subtitle }: TestListItemProps) {
-  return (
-    <div className={styles.listItem}>
-      <div className={styles.listIcon} style={{ background: `${color}15`, color: color }}>
-        {React.cloneElement(icon, { size: 20 })}
-      </div>
-      <div className={styles.listText}>
-        <span className={styles.listTitle}>{title}</span>
-        <span className={styles.listSubtitle}>{subtitle}</span>
-      </div>
-      <ChevronRight size={16} className={styles.arrow} />
-    </div>
+      {/* --- Challenge Yourself --- */}
+      <motion.section className={styles.section} variants={itemVariants}>
+        <h2 className={styles.sectionTitle}>挑战自我</h2>
+        <Link href="/test/settings/comprehensive" className={styles.cardLink}>
+          <div className={styles.featuredCard}>
+            <div className={styles.featuredInfo}>
+              <span className={styles.featuredTitle}>综合测试</span>
+              <span className={styles.featuredSubtitle}>随机组合所有题型进行全面检测</span>
+            </div>
+            <div className={styles.featuredIcon}>
+              <InfinityIcon size={64} strokeWidth={1.5} />
+            </div>
+          </div>
+        </Link>
+      </motion.section>
+    </motion.main>
   );
 }

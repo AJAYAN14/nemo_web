@@ -97,9 +97,10 @@ function LearnPageContent() {
       const items = Array.from(mergedMap.values());
       console.log(`[LearnPage] Fetched ${dueItems.length} due + ${resumeItems.length} resumed = ${items.length} session items.`);
 
-      // 3. Sandwich Mix: interleave new items among reviews (Android LearningSessionPolicy parity)
-      const reviewItemsForMix = items.filter(i => i.progress.reps > 0 && !!i.progress.last_review);
-      const newItemsForMix = items.filter(i => i.progress.reps === 0 || !i.progress.last_review);
+      // 3. Sandwich Mix: interleave new/learning items among mature reviews
+      // matches the new strict definition: Review = State 2
+      const reviewItemsForMix = items.filter(i => i.progress.state === 2);
+      const newItemsForMix = items.filter(i => i.progress.state !== 2); // Includes New (0) and Learning (1, 3)
       const mixedItems = mixSessionItems(reviewItemsForMix, newItemsForMix);
       console.log(`[LearnPage] Sandwich Mix applied: ${reviewItemsForMix.length} reviews + ${newItemsForMix.length} new → ${mixedItems.length} mixed`);
 

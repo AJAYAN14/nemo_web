@@ -20,6 +20,7 @@ import { SettingsModal } from "@/components/ui/SettingsModal";
 import { ModernCircularProgress } from "@/components/ui/ModernCircularProgress";
 import { statisticsService } from "@/lib/services/statisticsService";
 import { settingsService } from "@/lib/services/settingsService";
+import { MemoryPanorama } from "@/components/statistics/MemoryPanorama";
 import { StudyConfig } from "@/types/study";
 import { SakuraLoader } from "@/components/common/SakuraLoader";
 import { ClayCard } from "@/components/clay/ClayCard";
@@ -37,7 +38,7 @@ const containerVariants = {
 
 const itemVariants = {
   hidden: { opacity: 0, y: 20 },
-  visible: { opacity: 1, y: 0, transition: { duration: 0.4, ease: "easeOut" as const } },
+  visible: { opacity: 1, y: 0, transition: { duration: 0.4, ease: [0.22, 1, 0.36, 1] as any } },
 };
 
 export default function Home() {
@@ -102,8 +103,11 @@ export default function Home() {
     queryKey: ["dashboard-data", user?.id],
     queryFn: async () => {
       const config = await settingsService.getStudyConfig();
-      const stats = await statisticsService.getTodayStats(user!.id, config.resetHour || 4);
-      return { stats };
+      const [stats, memoryPanorama] = await Promise.all([
+        statisticsService.getTodayStats(user!.id, config.resetHour || 4),
+        statisticsService.getMemoryPanorama(user!.id)
+      ]);
+      return { stats, memoryPanorama };
     },
     enabled: !!user,
     staleTime: 0,
@@ -172,7 +176,16 @@ export default function Home() {
   const dueLearn = isWordMode ? stats.dueLearningWords : stats.dueLearningGrammars;
   const dueReview = isWordMode ? stats.dueReviewWords : stats.dueReviewGrammars;
   
-  const hasActiveSession = itemsDue > 0;
+  const hasTasks = dueNew > 0 || dueLearn > 0 || dueReview > 0;
+  
+  let mainActionLabel = "开始学习";
+  if (dueReview > 0) {
+    mainActionLabel = "开始复习";
+  } else if (dueNew === 0 && dueLearn > 0) {
+    mainActionLabel = "完成今日任务";
+  } else if (!hasTasks) {
+    mainActionLabel = "今日已达成";
+  }
 
   return (
     <motion.main 
@@ -249,29 +262,41 @@ export default function Home() {
         </ClayCard>
       </motion.section>
 
+      {/* 🧠 Memory Depth Panorama */}
+      <motion.section variants={itemVariants}>
+        <MemoryPanorama data={dashboardData.memoryPanorama} />
+      </motion.section>
+
       {/* ⚡ Primary Action & Secondary Context */}
       <motion.section className={styles.actionArea} variants={itemVariants}>
         <button 
-          className={clsx(styles.mainActionBtn, isWordMode ? styles.bgWord : styles.bgGrammar)}
-          onClick={() => router.push(`/learn?type=${mode === 'word' ? 'word' : 'grammar'}`)}
+          className={clsx(
+            styles.mainActionBtn, 
+            isWordMode ? styles.bgWord : styles.bgGrammar,
+            !hasTasks && styles.btnDisabled
+          )}
+          onClick={() => hasTasks && router.push(`/learn?type=${mode === 'word' ? 'word' : 'grammar'}`)}
+          disabled={!hasTasks}
         >
-          {hasActiveSession ? "继续学习" : "开始学习"}
+          {mainActionLabel}
           <ArrowRight size={20} />
         </button>
 
-        {/* 📊 Three-Color Task Board (Anki Style) */}
+        {/* 📊 Contextual Task Board (Switches with Mode) */}
         <div className={styles.taskBoard}>
-          <div className={styles.taskItem}>
-            <span className={clsx(styles.taskCount, styles.textNew)}>{dueNew}</span>
-            <span className={styles.taskLabel}>新词</span>
-          </div>
-          <div className={styles.taskItem}>
-            <span className={clsx(styles.taskCount, styles.textLearn)}>{dueLearn}</span>
-            <span className={styles.taskLabel}>学习</span>
-          </div>
-          <div className={styles.taskItem}>
-            <span className={clsx(styles.taskCount, styles.textReview)}>{dueReview}</span>
-            <span className={styles.taskLabel}>复习</span>
+          <div className={styles.taskBoardContent}>
+            <div className={styles.taskItem}>
+              <span className={clsx(styles.taskCount, styles.textNew)}>{isWordMode ? stats.dueNewWords : stats.dueNewGrammars}</span>
+              <span className={styles.taskLabel}>{isWordMode ? '新词' : '新语法'}</span>
+            </div>
+            <div className={styles.taskItem}>
+              <span className={clsx(styles.taskCount, styles.textLearn)}>{isWordMode ? stats.dueLearningWords : stats.dueLearningGrammars}</span>
+              <span className={styles.taskLabel}>学习</span>
+            </div>
+            <div className={styles.taskItem}>
+              <span className={clsx(styles.taskCount, styles.textReview)}>{isWordMode ? stats.dueReviewWords : stats.dueReviewGrammars}</span>
+              <span className={styles.taskLabel}>复习</span>
+            </div>
           </div>
         </div>
 
@@ -279,13 +304,13 @@ export default function Home() {
           <ClayCard padding="none" interactive onClick={() => router.push('/review/prep')}>
             <div className={styles.miniStatCard}>
               <span className={styles.miniStatLabel}>今日已复习</span>
-              <span className={styles.miniStatValue}>{reviewedToday}</span>
+              <span className={styles.miniStatValue}>{isWordMode ? stats.todayReviewedWords : stats.todayReviewedGrammars}</span>
             </div>
           </ClayCard>
           <ClayCard padding="none">
             <div className={styles.miniStatCard}>
               <span className={styles.miniStatLabel}>待复习总数</span>
-              <span className={styles.miniStatValue}>{itemsDue}</span>
+              <span className={styles.miniStatValue}>{isWordMode ? stats.dueWords : stats.dueGrammars}</span>
             </div>
           </ClayCard>
         </div>

@@ -2,37 +2,154 @@
 trigger: always_on
 ---
 
-# Project Rules: Nemo2 Web Transition (Finalized)
+# Nemo2 Web-First Development Rules (Complete Departure from Android)
 
-These rules govern all autonomous and guided development for the **Nemo2** web project. Every action taken by Antigravity must strictly adhere to these guidelines to ensure the project remains faithful to the original Android source, meets high-fidelity design standards, and follows the specified tech stack.
+This document serves as the supreme directive for all Nemo2 development. Following the user's explicit command: The project has completely abandoned Android compatibility and transitioned to the "Web Excellence" model. Maintaining legacy mobile logic for the sake of reuse is strictly prohibited. Technical excellence and modern Web best practices are the sole considerations.
 
-## 1. Core Source of Truth (Mandatory)
-- **Primary Reference**: `E:/Web/Nemo_web/Android project/Nemo`
-- **Zero Hallucination Policy**: Do not "guess" or "invent" business logic, SRS scheduling algorithms, or feature behaviors. If a feature exists in the Android version, it must be restored 1:1. If it does not exist, do not implement it unless explicitly requested.
-- **Reference Checks**: Before implementing any core feature (Word Detail, Grammar List, Learning Logic), perform a deep-dive search into the Android project's `core` and `feature` modules.
+---
 
-## 2. Design System: UI/UX PRO MAX - Minimalist Flat
-- **Design Standard**: Strictly follow `UI/UX PRO MAX`. The chosen visual style is **Minimalist Flat (极简扁平化)**.
-- **Visual Tokens**:
-    - **Palette**: Clean, high-contrast colors (#4F46E5 Indigo, #10B981 Emerald). Background: `#F9FAFB` (Off-white).
-    - **Shapes**: Sharp or moderate rounding (8px-12px). Use 1px borders instead of shadows.
-    - **Effects**: NO shadows, NO blurs, NO 3D effects. Use color blocking and whitespace for depth.
-    - **Typography**: `Inter` or `Outfit` for a modern, geometric feel.
-- **Micro-interactions**: Subtle opacity changes (0.8 on hover) and color shifts. Fast, snappy transitions (150ms).
+## 1. Core Philosophy: Web Sovereignty
 
-## 3. Technical Stack & Architecture
-- **Framework**: **Next.js 15+ (App Router)** with **TypeScript**.
-- **Styling**: **Vanilla CSS (CSS Modules)** + CSS Variables. Use **Radix UI** for accessible primitives (Dialogs, Tabs, etc.).
-- **Data Sync**: **TanStack Query** for Supabase synchronization.
-- **Database**: **Supabase Nemo2** (ID: `fzzkxymwcambugbxfsvj`).
-- **AI Integration**: Mandatory AI-driven features for pronunciation feedback and grammar explanation via Supabase Edge Functions.
+### Complete De-Androidization
+- Do not reference any Android project paths or logic  
+  *(e.g., `E:/Web/Nemo_web/Android project/Nemo` is now considered deprecated history)*  
+- The use of legacy Android naming conventions, data structures, or redundant abstraction layers is strictly forbidden.
 
-## 4. Responsive & Layout Rules (Adaptive UI)
-- **Mobile First**: Implement dedicated layouts for Mobile and Desktop. Do not use simple CSS scaling; if the screen is mobile, use a mobile-optimized layout (bottom navigation, large hit targets).
-- **Hit Targets**: Minimum 44x44px for interactive elements.
-- **Component Focused**: Build reusable `ClayComponent` primitives in `@/components/clay` before assembling pages.
+### Native Web Evolution
+- If the best Web implementation *(e.g., Suspense, Streaming, Server Actions)* conflicts with legacy Android logic, the Web-native solution must be chosen without compromise.
 
-## 5. Implementation Workflow
-- **Rules Overridability**: These rules take precedence over general instructions.
-- **No Placeholders**: Use `generate_image` for assets and ensure all examples use real language data from `dictionary_words`.
-- **Verification**: All UI changes must be cross-verified against the Android screenshot/reference for functional parity.
+### Architectural Freedom
+- Developers are encouraged to design superior Web-native interaction logic based on intuition and best practices:
+  - Multi-column layouts for large screens  
+  - Complex hover states  
+  - Global keyboard shortcut systems  
+
+---
+
+## 2. Design System: UI/UX PRO MAX (Minimalist Flat)
+
+### Design Standard
+- Strictly follow **UI/UX PRO MAX**
+- Visual style: **Minimalist Flat**
+
+### Visual Tokens
+
+**Palette**
+- High contrast, pure colors:
+  - `#4F46E5` (Indigo)
+  - `#10B981` (Emerald)
+- Background color: `#F9FAFB`
+
+**Shapes**
+- Sharp or moderate rounding: `8px–12px`
+- Use **1px borders** instead of shadows
+- Use **color blocking** to define hierarchy
+
+**Prohibitions**
+- ❌ NO shadows  
+- ❌ NO blurs  
+- ❌ NO pseudo-3D effects  
+- Depth must be achieved through:
+  - Typography  
+  - Spacing  
+  - Color  
+
+**Typography**
+- Prioritize:
+  - `Inter`
+  - `Outfit`
+- Goal: Premium, geometric feel + maximum legibility
+
+**Micro-interactions**
+- Fast and responsive
+- Transition duration: **≤150ms**
+  - Examples:
+    - Hover opacity → `0.8`
+    - Border color deepening  
+
+---
+
+## 3. Technical Stack: Modern Web Stack
+
+### Framework
+- **Next.js 15+ (App Router)**
+- **TypeScript (Strict Mode)**
+
+### Styling
+- **Vanilla CSS (CSS Modules)**
+- **CSS Variables**
+- ❌ Global CSS pollution is strictly prohibited
+
+### Interaction Primitives
+- Built on **Radix UI**
+  - Dialog
+  - Popover
+  - Select
+  - etc.
+
+### Data Flow
+- Use **TanStack Query (React Query)** for Supabase state synchronization
+
+### Database
+- **Supabase Nemo2**
+  - ID: `fzzkxymwcambugbxfsvj`
+
+### Logic Patterns
+- ❌ Abandon OOP inheritance models from Android
+- ✅ Use:
+  - Pure Functional TypeScript Services  
+  - React Hooks  
+
+---
+
+## 4. Responsive & Interaction Rules
+
+### Desktop-First Responsive Design
+- No more “upscaled mobile versions”
+- Fully leverage desktop space:
+  - Sidebars  
+  - Split views  
+  - Grid-based layouts  
+  - Viewport-aware transformations  
+
+### Full-Featured Web Support
+
+**Keyboard Centric**
+- `ESC` → Close
+- `ENTER` → Submit
+- `CMD/CTRL + K` → Global search
+
+**SEO & Performance**
+- Use **React Server Components (RSC)** to optimize LCP
+- Use **Link Prefetching** for near-instant navigation
+
+### Component Library
+- Maintain the **clay component library**
+- All features must be assembled using standard components
+- Ensure visual consistency across the system
+
+---
+
+## 5. Workflow & Validation
+
+### Success Metrics
+- Code reviews evaluate:
+  - Modern Web standards adherence  
+  - Lighthouse scores  
+  - Core Web Vitals  
+  - Web Accessibility  
+
+- ❌ NOT evaluated:
+  - Parity with Android  
+
+### Asset Generation
+- All UI placeholders must be generated using `generate_image`
+- Mock data must reflect **realistic Web application scenarios**
+
+### Zero-Placeholder Principle
+- All submitted code must be **fully functional**
+- ❌ Forbidden:
+  - `TODO: sync with Android logic`
+  - Any placeholder or incomplete logic  
+
+---

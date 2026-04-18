@@ -42,9 +42,10 @@ export default function ReviewPrepPage() {
       // matching Android getDueWordsUseCase + getDueGrammarsUseCase
       const allDue = await studyService.getDueItems(user.id, undefined, undefined, studyConfig.resetHour || 4);
 
-      // Filter to only true review items: must have prior review history.
+      // Filter to only mature review items (Graduated / State 2)
+      // matching the new strict definition of "Due"
       const reviewItems = allDue.filter(
-        item => item.progress.reps > 0 && !!item.progress.last_review
+        item => item.progress.state === 2
       );
 
       // Sort by next_review ascending (most urgent first) — matches Android sortedWith

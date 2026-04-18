@@ -49,7 +49,7 @@ export function ProgressRing({ progress, size = 120, color = 'var(--primary-colo
           strokeDasharray={circumference + ' ' + circumference}
           initial={{ strokeDashoffset: circumference }}
           animate={{ strokeDashoffset }}
-          transition={{ duration: 1, ease: 'easeOut' as const, delay: 0.2 }}
+          transition={{ duration: 1, ease: [0.22, 1, 0.36, 1] as any, delay: 0.2 }}
           r={normalizedRadius}
           cx={size / 2}
           cy={size / 2}

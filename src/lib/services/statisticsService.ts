@@ -1,5 +1,6 @@
 import { supabase } from '@/lib/supabase';
 import { StudyRecord, LearningStats, DetailedLearningStats, DetailedItem } from '@/types/study';
+import { QuestionSource, TestContentType } from '@/types/test';
 import { settingsService } from './settingsService';
 
 export const statisticsService = {
@@ -48,73 +49,75 @@ export const statisticsService = {
     const nowWithBuffer = new Date(now.getTime() + learnAheadMinutes * 60000).toISOString();
 
     // Keep home counters aligned with learn page queue source:
-    // same state filter, same level filter, same ordering, same per-type limit.
-    const fetchDueByType = async (itemType: 'word' | 'grammar', level: string) => {
+    // same state filter, same level filter, same ordering.
+    const getDetailedCounts = async (itemType: 'word' | 'grammar', level: string) => {
       let query = supabase
         .from('user_progress')
-        .select('state, item_id')
+        .select('state', { count: 'exact' })
         .eq('user_id', userId)
         .eq('item_type', itemType)
         .in('state', [0, 1, 2, 3])
         .lte('next_review', nowWithBuffer)
-        .lte('buried_until', epochDay)
-        .order('next_review', { ascending: true })
-        .order('id', { ascending: true })
-        .limit(50);
+        .lte('buried_until', epochDay);
 
       if (level && level !== 'ALL') {
         query = query.eq('level', level);
       }
 
-      const { data, error } = await query;
+      const { data, count, error } = await query;
       if (error) throw error;
-      const rows = data || [];
-      if (rows.length === 0) return rows;
 
-      // Keep parity with learn queue mapping: drop progress rows whose dictionary
-      // content no longer exists.
-      const itemIds = [...new Set(rows.map((row) => Number(row.item_id)).filter(Number.isFinite))];
-      if (itemIds.length === 0) return [];
+      const items = data || [];
+      const stats = {
+        new: items.filter(i => i.state === 0).length,
+        learning: items.filter(i => i.state === 1 || i.state === 3).length,
+        review: items.filter(i => i.state === 2).length,
+        total: count || 0
+      };
 
-      const tableName = itemType === 'word' ? 'dictionary_words' : 'dictionary_grammars';
-      const { data: contentRows, error: contentError } = await supabase
-        .from(tableName)
-        .select('id')
-        .in('id', itemIds);
+      // Since we selected *without* limit to get counts, but Supabase might still paginate,
+      // for exact counts we should ideally use a specialized RPC or multiple count queries if the dataset is huge.
+      // However, for most users fetching ~hundreds of rows of 'state' only is fine.
+      // To be even more robust and avoid any fetch limits, we do separate counts for each state.
 
-      if (contentError) throw contentError;
+      const countByState = async (stateArr: number[]) => {
+        let q = supabase
+          .from('user_progress')
+          .select('*', { count: 'exact', head: true })
+          .eq('user_id', userId)
+          .eq('item_type', itemType)
+          .in('state', stateArr)
+          .lte('next_review', nowWithBuffer)
+          .lte('buried_until', epochDay);
+        // Level filtering rule:
+        // Stepping/Review (1, 2, 3) are level-agnostic (Android parity).
+        // New (0) is level-specific.
+        if (level && level !== 'ALL' && stateArr.includes(0)) {
+          q = q.eq('level', level);
+        }
+        const { count: c, error: e } = await q;
+        if (e) throw e;
+        return c || 0;
+      };
 
-      const existingIds = new Set((contentRows || []).map((row) => Number(row.id)));
-      return rows.filter((row) => existingIds.has(Number(row.item_id)));
-    };
-
-    const [dueWordItems, dueGrammarItems] = await Promise.all([
-      fetchDueByType('word', config.wordLevel),
-      fetchDueByType('grammar', config.grammarLevel)
-    ]);
-
-    const countStates = (items: Array<{ state: number | null }>) => {
-      let dueNew = 0;
-      let dueLearning = 0;
-      let dueReview = 0;
-
-      items.forEach(item => {
-        const state = Number(item.state);
-        if (state === 0) dueNew++;
-        else if (state === 1 || state === 3) dueLearning++;
-        else if (state === 2) dueReview++;
-      });
+      const [cNew, cLearn, cReview] = await Promise.all([
+        countByState([0]),
+        countByState([1, 3]),
+        countByState([2])
+      ]);
 
       return {
-        dueNew,
-        dueLearning,
-        dueReview,
-        dueTotal: items.length
+        new: cNew,
+        learning: cLearn,
+        review: cReview,
+        dueTotal: cReview // Optimized: Dashboard 'Due Items' now strictly represents graduated reviews (State 2)
       };
     };
 
-    const wordCounts = countStates(dueWordItems as Array<{ state: number | null }>);
-    const grammarCounts = countStates(dueGrammarItems as Array<{ state: number | null }>);
+    const [wordCounts, grammarCounts] = await Promise.all([
+      getDetailedCounts('word', config.wordLevel),
+      getDetailedCounts('grammar', config.grammarLevel)
+    ]);
 
     const { data: recentRecords } = await supabase
       .from('study_records')
@@ -148,12 +151,12 @@ export const statisticsService = {
       todayReviewedGrammars: record?.reviewed_grammars || 0,
       dueWords: wordCounts.dueTotal,
       dueGrammars: grammarCounts.dueTotal,
-      dueNewWords: wordCounts.dueNew,
-      dueLearningWords: wordCounts.dueLearning,
-      dueReviewWords: wordCounts.dueReview,
-      dueNewGrammars: grammarCounts.dueNew,
-      dueLearningGrammars: grammarCounts.dueLearning,
-      dueReviewGrammars: grammarCounts.dueReview,
+      dueNewWords: wordCounts.new,
+      dueLearningWords: wordCounts.learning,
+      dueReviewWords: wordCounts.review,
+      dueNewGrammars: grammarCounts.new,
+      dueLearningGrammars: grammarCounts.learning,
+      dueReviewGrammars: grammarCounts.review,
       streak,
       dailyGoal: config.dailyGoal,
       grammarDailyGoal: config.grammarDailyGoal,
@@ -306,14 +309,12 @@ export const statisticsService = {
 
     const { data: items } = await supabase
       .from('user_progress')
-      .select('next_review, buried_until, reps, last_review')
+      .select('next_review, buried_until, state')
       .eq('user_id', userId)
-      .neq('state', -1);
+      .eq('state', 2); // Optimized: Only forecast truly graduated items
 
     if (items) {
       items.forEach(item => {
-        // Forecast only true review items; skip never-reviewed seeded entries.
-        if (Number(item.reps || 0) <= 0 || !item.last_review) return;
         if (!item.next_review) return;
         const reviewDate = new Date(item.next_review);
         const reviewEpoch = this.getLearningDay(reviewDate, resetHour);
@@ -450,7 +451,7 @@ export const statisticsService = {
     const [wordsRes, grammarsRes, progressRes] = await Promise.all([
       wordIds.length > 0 ? supabase.from('dictionary_words').select('*').in('id', wordIds) : Promise.resolve({ data: [] }),
       grammarIds.length > 0 ? supabase.from('dictionary_grammars').select('*').in('id', grammarIds) : Promise.resolve({ data: [] }),
-      supabase.from('user_progress').select('item_id, item_type, created_at').eq('user_id', userId).in('item_id', [...wordIds, ...grammarIds])
+      supabase.from('user_progress').select('item_id, item_type, created_at, state').eq('user_id', userId).in('item_id', [...wordIds, ...grammarIds])
     ]);
 
     const wordsMap = new Map((wordsRes.data || []).map(w => [w.id, w]));
@@ -521,7 +522,7 @@ export const statisticsService = {
   async getWeeklyActivitySummary(userId: string, resetHour: number = 4) {
     const todayEpoch = this.getLearningDay(new Date(), resetHour);
     const today = new Date(todayEpoch * 86400000);
-    
+
     // Calculate Monday of current week
     const dayOfWeek = today.getDay(); // 0 (Sun) to 6 (Sat)
     const diffToMonday = (dayOfWeek === 0 ? -6 : 1) - dayOfWeek;
@@ -533,15 +534,15 @@ export const statisticsService = {
     ]);
 
     const historyMap = new Map(history.map(r => [Number(r.date), r]));
-    
+
     const result = [];
     for (let i = 0; i < 7; i++) {
       const currentEpoch = mondayEpoch + i;
       const h = historyMap.get(currentEpoch);
       const f = forecast[currentEpoch] || 0;
-      
+
       const count = h ? (h.learned_words || 0) + (h.learned_grammars || 0) + (h.reviewed_words || 0) + (h.reviewed_grammars || 0) : f;
-      
+
       // Tier logic
       let level = 0;
       if (count > 0) {
@@ -576,7 +577,7 @@ export const statisticsService = {
         .eq('user_id', userId)
         .eq('date', epochDay)
         .maybeSingle();
-      
+
       return {
         learnedWords: data?.learned_words || 0,
         reviewedWords: data?.reviewed_words || 0,
@@ -677,6 +678,10 @@ export const statisticsService = {
   /**
    * Get comprehensive dashboard summary for the Progress Carousel
    */
+  /**
+   * TODO: 开发记忆深度分析图表 (Anki-style Mature vs Young)
+   * 逻辑：根据 stability/interval 阈值（如 21天）区分累计掌握中的“初学期”与“稳固期”。
+   */
   async getDashboardSummary(userId: string, resetHour: number = 4) {
     const todayEpoch = this.getLearningDay(new Date(), resetHour);
     const today = new Date(todayEpoch * 86400000);
@@ -698,7 +703,7 @@ export const statisticsService = {
 
     const totalWords = trackedCount.count || 0;
     const totalMastered = masteredCount.count || 0;
-    
+
     // Calculate week study days
     const weekRecords = studyRecords.data?.filter(r => Number(r.date) >= mondayEpoch && Number(r.date) <= todayEpoch) || [];
     const weekStudyDays = weekRecords.length;
@@ -716,5 +721,188 @@ export const statisticsService = {
       totalStudyDays: studyRecords.data?.length || 0,
       weekStudyDays: weekStudyDays
     };
+  },
+
+  async getMemoryPanorama(userId: string) {
+    const fetchTierCount = async (min: number, max: number | null) => {
+      let q = supabase
+        .from('user_progress')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', userId)
+        .in('state', [1, 2, 3]) // Only count learned/active items
+        .gt('stability', min);
+
+      if (max !== null) {
+        q = q.lte('stability', max);
+      }
+
+      const { count, error } = await q;
+      if (error) throw error;
+      return count || 0;
+    };
+
+    const [early, developing, mature, expert] = await Promise.all([
+      fetchTierCount(-1, 3),      // 0-3d
+      fetchTierCount(3, 21),     // 3-21d
+      fetchTierCount(21, 60),    // 21-60d
+      fetchTierCount(60, null)   // 60d+
+    ]);
+
+    const total = early + developing + mature + expert;
+
+    return {
+      early,
+      developing,
+      mature,
+      expert,
+      total
+    };
+  },
+
+  /**
+   * Specialized count for Test Settings: "Today's New Learned"
+   * Criteria: 
+   * 1. state = 2 (Review/Graduated)
+   * 2. created_at >= resetHour today (First contact today)
+   * 3. last_review >= resetHour today (Graduation happened today)
+   * 4. lapses = 0 (Strict first-time learning, no re-learned items)
+   */
+  async getTodayNewGraduatedCount(userId: string, itemType: 'word' | 'grammar' | 'mixed', resetHour: number = 4): Promise<number> {
+    const now = new Date();
+    const startOfToday = new Date(now);
+    startOfToday.setHours(resetHour, 0, 0, 0);
+    if (now.getHours() < resetHour) {
+      startOfToday.setDate(startOfToday.getDate() - 1);
+    }
+    const startIso = startOfToday.toISOString();
+
+    let query = supabase
+      .from('user_progress')
+      .select('*', { count: 'exact', head: true })
+      .eq('user_id', userId)
+      .eq('state', 2)
+      .eq('lapses', 0)
+      .gte('created_at', startIso)
+      .gte('last_review', startIso);
+
+    if (itemType !== 'mixed') {
+      query = query.eq('item_type', itemType === 'word' ? 'word' : 'grammar');
+    }
+
+    const { count, error } = await query;
+    if (error) {
+      console.error('Error fetching today new graduated count:', error);
+      return 0;
+    }
+    return count || 0;
+  },
+
+  /**
+   * Specialized count for Test Settings: "Today's Reviewed Content"
+   * Criteria per user requirement:
+   * 1. Previously learned: created_at < tonightStart
+   * 2. Finished review today: last_review >= tonightStart
+   * 3. Must be a mastered item: state = 2
+   */
+  async getTodayReviewedCount(userId: string, itemType: 'word' | 'grammar' | 'mixed', resetHour: number = 4): Promise<number> {
+    const now = new Date();
+    const startOfToday = new Date(now);
+    startOfToday.setHours(resetHour, 0, 0, 0);
+    if (now.getHours() < resetHour) {
+      startOfToday.setDate(startOfToday.getDate() - 1);
+    }
+    const startIso = startOfToday.toISOString();
+
+    let query = supabase
+      .from('user_progress')
+      .select('*', { count: 'exact', head: true })
+      .eq('user_id', userId)
+      .eq('state', 2)
+      .lt('created_at', startIso)
+      .gte('last_review', startIso);
+
+    if (itemType !== 'mixed') {
+      query = query.eq('item_type', itemType === 'word' ? 'word' : 'grammar');
+    }
+
+    const { count, error } = await query;
+    if (error) {
+      console.error('Error fetching today reviewed count:', error);
+      return 0;
+    }
+    return count || 0;
+  },
+
+  /**
+   * Unified count for Test Settings
+   */
+  async getTestItemCount(
+    userId: string,
+    source: QuestionSource,
+    contentType: TestContentType,
+    wordLevels: string[],
+    grammarLevels: string[],
+    resetHour: number = 4
+  ): Promise<number> {
+    const now = new Date();
+    const startOfToday = new Date(now);
+    startOfToday.setHours(resetHour, 0, 0, 0);
+    if (now.getHours() < resetHour) {
+      startOfToday.setDate(startOfToday.getDate() - 1);
+    }
+    const startIso = startOfToday.toISOString();
+
+    const fetchItemsCount = async (type: 'word' | 'grammar') => {
+      let query;
+      const levels = type === 'word' ? wordLevels : grammarLevels;
+
+      if (source === 'ALL') {
+        query = supabase.from(type === 'word' ? 'dictionary_words' : 'dictionary_grammars')
+          .select('*', { count: 'exact', head: true })
+          .eq('is_delisted', false);
+        if (levels.length > 0 && !levels.includes('ALL')) {
+          query = query.in('level', levels);
+        }
+      } else {
+        query = supabase.from('user_progress')
+          .select('*', { count: 'exact', head: true })
+          .eq('user_id', userId)
+          .eq('item_type', type);
+
+        switch (source) {
+          case 'TODAY':
+            query = query.eq('state', 2).eq('lapses', 0).gte('created_at', startIso).gte('last_review', startIso);
+            break;
+          case 'TODAY_REVIEWED':
+            query = query.eq('state', 2).lt('created_at', startIso).gte('last_review', startIso);
+            break;
+          case 'WRONG':
+            query = query.gt('lapses', 0).neq('state', -1);
+            if (levels.length > 0 && !levels.includes('ALL')) query = query.in('level', levels);
+            break;
+          case 'LEARNED':
+            query = query.eq('state', 2);
+            if (levels.length > 0 && !levels.includes('ALL')) query = query.in('level', levels);
+            break;
+          case 'FAVORITE':
+            return 0; // Not implemented in DB yet
+        }
+      }
+
+      const { count, error } = await query;
+      return error ? 0 : (count || 0);
+    };
+
+    if (contentType === 'WORDS') return fetchItemsCount('word');
+    if (contentType === 'GRAMMAR') return fetchItemsCount('grammar');
+
+    const [wordCount, grammarCount] = await Promise.all([
+      fetchItemsCount('word'),
+      fetchItemsCount('grammar')
+    ]);
+    return wordCount + grammarCount;
   }
 };
+
+
+

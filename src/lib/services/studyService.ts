@@ -25,17 +25,19 @@ function getCompletionStudyDeltaField(
   stateBeforeAnswer: number,
   actionType: RatingAction['type']
 ): StudyDeltaField | null {
-  // Progress ring semantics: only completed cards (graduate/leech) count.
+  // Progress ring semantics: only completed cards (graduate/leech) count towards any activity tally.
   if (actionType !== 'graduate' && actionType !== 'leech') {
     return null;
   }
 
-  // Graduation from Review/Relearning is review completion; otherwise learning completion.
-  const isReviewSide = stateBeforeAnswer === 2 || stateBeforeAnswer === 3;
+  // ALIGNMENT: 'Learned' strictly means the word is entering the learning system (Leaving State 0).
+  // Any further steps (State 1, 3) or mature tests (State 2) are counted as "Reviews" for activity logs.
+  const isInitialLearning = stateBeforeAnswer === 0;
+
   if (itemType === 'word') {
-    return isReviewSide ? 'reviewed_words' : 'learned_words';
+    return isInitialLearning ? 'learned_words' : 'reviewed_words';
   }
-  return isReviewSide ? 'reviewed_grammars' : 'learned_grammars';
+  return isInitialLearning ? 'learned_grammars' : 'reviewed_grammars';
 }
 
 async function resolveStudyItemsFromProgress(progressList: UserProgress[], sourceTag: string): Promise<StudyItem[]> {
@@ -240,7 +242,9 @@ export const studyService = {
         .order('id', { ascending: true });
 
       if (targetLevel && targetLevel !== 'ALL') {
-        query = query.eq('level', targetLevel);
+        // ANDROID PARITY: Reviews (2) and Stepping items (1, 3) stay in queue regardless of level switch.
+        // Only State 0 (New) items are filtered by the current target level.
+        query = query.or(`state.neq.0,level.eq.${targetLevel}`);
       }
 
       if (typeof limit === 'number' && limit > 0 && itemType === targetType) {
