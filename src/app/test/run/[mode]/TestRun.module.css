@@ -238,8 +238,91 @@
   width: 100%;
 }
 
+
 .introIcon {
   font-size: 3rem;
   margin-bottom: 1.5rem;
+}
+
+.shake {
+  animation: shake 0.5s cubic-bezier(.36,.07,.19,.97) both;
+}
+
+@keyframes shake {
+  10%, 90% { transform: translate3d(-1px, 0, 0); }
+  20%, 80% { transform: translate3d(2px, 0, 0); }
+  30%, 50%, 70% { transform: translate3d(-4px, 0, 0); }
+  40%, 60% { transform: translate3d(4px, 0, 0); }
+}
+
+.secondaryButton {
+  background-color: white;
+  color: #374151;
+  border: 1px solid #E5E7EB;
+  padding: 1rem 2.5rem;
+  border-radius: 12px;
+  font-weight: 600;
+  font-size: 1.1rem;
+  cursor: pointer;
+  transition: all 0.2s;
+  width: 100%;
+}
+
+.secondaryButton:hover {
+  background-color: #F9FAFB;
+  border-color: #D1D5DB;
+}
+
+
+.summaryActions {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  width: 100%;
+}
+
+.mistakesSection {
+  margin: 2rem 0;
+  text-align: left;
+  border-top: 1px solid #F3F4F6;
+  padding-top: 2rem;
+}
+
+.mistakesTitle {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #374151;
+  margin-bottom: 1rem;
+  padding-left: 0.5rem;
+}
+
+.mistakesList {
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
+  max-height: 200px;
+  overflow-y: auto;
+  padding-right: 0.5rem;
+}
+
+.mistakeItem {
+  background: #FEF2F2;
+  border: 1px solid #FEE2E2;
+  padding: 1rem;
+  border-radius: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.mistakePrompt {
+  font-weight: 600;
+  color: #991B1B;
+}
+
+.mistakeAnswer {
+  font-size: 0.9rem;
+  color: #B91C1C;
+  opacity: 0.8;
 }
 

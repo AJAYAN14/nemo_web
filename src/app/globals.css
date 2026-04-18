@@ -30,6 +30,29 @@
   
   --border-subtle: 1px solid #E5E7EB;
   --border-focus: 2px solid var(--primary);
+
+  /* Minimalist Flat SaaS Palette */
+  --indigo-core: #4F46E5;
+  --indigo-light: #EEF2FF;
+  --emerald-core: #10B981;
+  --emerald-light: #ECFDF5;
+  
+  --bg-app: #F9FAFB;
+  --bg-card: #FFFFFF;
+  
+  --text-main: #111827;
+  --text-muted: #6B7280;
+}
+
+@keyframes reveal-text {
+  from { clip-path: inset(0 100% 0 0); }
+  to { clip-path: inset(0 0 0 0); }
+}
+
+@keyframes float-slow {
+  0% { transform: translateY(0); }
+  50% { transform: translateY(-4px); }
+  100% { transform: translateY(0); }
 }
 
 * {
@@ -44,13 +67,24 @@ body {
   width: 100%;
 }
 
-body {
+/* Hide scrollbar for all elements globally */
+*::-webkit-scrollbar {
+  display: none !important;
+}
+
+* {
+  scrollbar-width: none !important; /* Firefox */
+  -ms-overflow-style: none !important; /* IE and Edge */
+}
+
+html, body {
   background-color: var(--background);
   color: var(--foreground);
   font-family: var(--font-body);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   line-height: 1.5;
+  overflow-x: hidden; /* Prevent horizontal scroll just in case */
 }
 
 h1, h2, h3, h4, h5, h6 {
@@ -66,4 +100,18 @@ a {
 button {
   font-family: inherit;
   cursor: pointer;
+}
+
+/* Global Loader Wrapper to prevent layout shift */
+.loader-wrapper-global {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: #F9FAFB; /* Use hardcoded or var if safe */
+  z-index: 9999;
 }

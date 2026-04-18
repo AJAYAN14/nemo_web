@@ -45,30 +45,44 @@ export interface TestConfig {
   autoAdvance: boolean;
   prioritizeWrong: boolean;
   prioritizeNew: boolean;
+  showHint: boolean;
   comprehensiveQuestionCounts: Record<string, number>;
   distribution?: QuestionDistribution;
 }
 
 export const DEFAULT_TEST_CONFIG: TestConfig = {
-  questionCount: 20,
-  timeLimitMinutes: 0,
-  questionSource: 'ALL',
+  questionCount: 10,
+  timeLimitMinutes: 10,
+  questionSource: 'TODAY',
   wrongAnswerRemovalThreshold: 0,
-  testContentType: 'WORDS',
+  testContentType: 'MIXED',
   testMode: TestMode.JP_TO_CN,
-  selectedWordLevels: [WordLevel.N5],
-  selectedGrammarLevels: [GrammarLevel.N5],
+  selectedWordLevels: [WordLevel.N5, WordLevel.N4, WordLevel.N3, WordLevel.N2, WordLevel.N1],
+  selectedGrammarLevels: [GrammarLevel.N5, GrammarLevel.N4, GrammarLevel.N3, GrammarLevel.N2, GrammarLevel.N1],
   shuffleQuestions: true,
   shuffleOptions: true,
   autoAdvance: true,
   prioritizeWrong: false,
-  prioritizeNew: true,
+  prioritizeNew: false,
+  showHint: true,
   comprehensiveQuestionCounts: {
-    multiple_choice: 5,
-    typing: 5,
-    card_matching: 5,
-    sorting: 5,
+    multiple_choice: 4,
+    typing: 3,
+    card_matching: 2,
+    sorting: 1,
   },
   distribution: QuestionDistribution.BALANCED,
 };
+
+export interface TestRecord {
+  id: string;
+  user_id: string;
+  created_at: string;
+  mode: string;
+  total_questions: number;
+  correct_count: number;
+  score: number;
+  time_spent_seconds: number;
+  content_type: string;
+}
 

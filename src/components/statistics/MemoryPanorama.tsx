@@ -61,6 +61,16 @@ export function MemoryPanorama({ data }: MemoryPanoramaProps) {
           </div>
         ))}
       </div>
+
+      <div className={styles.statsGrid}>
+        {tiers.map((tier) => (
+          <div key={tier.key} className={styles.statItem}>
+            <span className={styles.statCount}>{tier.count}</span>
+            <span className={styles.statLabel}>{tier.label}</span>
+            <span className={styles.statPct}>{Math.round(getPercentage(tier.count))}%</span>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }

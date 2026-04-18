@@ -7,6 +7,7 @@ import styles from './settings.module.css';
 import { SettingRow } from '@/components/test/settings/SettingRow';
 import { SwitchRow } from '@/components/test/settings/SwitchRow';
 import { ResponsiveOptionSelector } from '@/components/test/settings/ResponsiveOptionSelector';
+import { CustomNumberInputDialog } from '@/components/test/settings/CustomNumberInputDialog';
 import { DEFAULT_TEST_CONFIG, TestConfig, QuestionSource, TestContentType, WordLevel, GrammarLevel } from '@/types/test';
 import { motion } from 'framer-motion';
 import { statisticsService } from '@/lib/services/statisticsService';
@@ -24,19 +25,34 @@ export default function TestSettingsPage() {
   // States for Modals
   const [selectorOpen, setSelectorOpen] = useState(false);
   const [currentSelector, setCurrentSelector] = useState<string | null>(null);
+  const [customInputOpen, setCustomInputOpen] = useState(false);
+  const [customInputTitle, setCustomInputTitle] = useState('');
+  const [customInputPlaceholder, setCustomInputPlaceholder] = useState('');
+  const [customInputValue, setCustomInputValue] = useState('');
+  const [onCustomConfirm, setOnCustomConfirm] = useState<(val: number) => void>(() => () => {});
+  
   const [isLoadingCount, setIsLoadingCount] = useState(false);
   const [realCount, setRealCount] = useState<number | null>(null);
+  const [levelDistribution, setLevelDistribution] = useState<Record<string, number>>({});
 
   // Load persisted config on mount
   React.useEffect(() => {
     try {
       const saved = localStorage.getItem(`nemo_test_config_${mode}`);
+      let finalConfig = DEFAULT_TEST_CONFIG;
       if (saved) {
-        // Deep merge with default to ensure no missing keys causing errors over time
-        setConfig({ ...DEFAULT_TEST_CONFIG, ...JSON.parse(saved) });
-      } else {
-        setConfig(DEFAULT_TEST_CONFIG);
+        finalConfig = { ...DEFAULT_TEST_CONFIG, ...JSON.parse(saved) };
       }
+
+      // Parity: Validate content type for specific modes
+      const isRestrictedMode = ['typing', 'sorting', 'card_matching'].includes(mode);
+      if (isRestrictedMode && finalConfig.testContentType !== 'WORDS') {
+        finalConfig.testContentType = 'WORDS';
+      } else if (mode === 'comprehensive' && finalConfig.testContentType === 'GRAMMAR') {
+        finalConfig.testContentType = 'MIXED';
+      }
+      
+      setConfig(finalConfig);
     } catch (e) {
       console.warn("Failed to load test config for mode:", mode, e);
     } finally {
@@ -81,14 +97,22 @@ export default function TestSettingsPage() {
 
       setIsLoadingCount(true);
       try {
-        const count = await statisticsService.getTestItemCount(
-          user.id,
-          config.questionSource,
-          config.testContentType,
-          config.selectedWordLevels,
-          config.selectedGrammarLevels
-        );
+        const [count, dist] = await Promise.all([
+          statisticsService.getTestItemCount(
+            user.id,
+            config.questionSource,
+            config.testContentType,
+            config.selectedWordLevels,
+            config.selectedGrammarLevels
+          ),
+          statisticsService.getTestLevelDistribution(
+            user.id,
+            config.questionSource,
+            config.testContentType
+          )
+        ]);
         setRealCount(count);
+        setLevelDistribution(dist);
       } catch (error) {
         console.error(error);
       } finally {
@@ -113,7 +137,10 @@ export default function TestSettingsPage() {
       case 'questionCount':
         return {
           title: '选择题目数量',
-          options: [10, 15, 20, 25, 30, 40, 50].map(n => ({ label: `${n} 题`, value: n })),
+          options: [
+            ...[10, 15, 20, 25, 30, 40].map(n => ({ label: `${n} 题`, value: n })),
+            { label: '自定义...', value: 'CUSTOM' }
+          ],
         };
       case 'questionSource':
         return {
@@ -134,48 +161,101 @@ export default function TestSettingsPage() {
             { label: '不移除', value: 0 },
             { label: '3 次', value: 3 },
             { label: '5 次', value: 5 },
+            { label: '7 次', value: 7 },
             { label: '10 次', value: 10 },
           ],
         };
-      case 'contentType':
+      case 'contentType': {
+        const isRestrictedMode = ['typing', 'sorting', 'card_matching'].includes(mode);
+        const options = [];
+        
+        if (isRestrictedMode) {
+          options.push({ label: '仅测试单词', value: 'WORDS' });
+        } else if (mode === 'comprehensive') {
+          options.push({ label: '仅测试单词', value: 'WORDS' });
+          options.push({ label: '单词和语法混合', value: 'MIXED' });
+        } else {
+          options.push({ label: '仅测试单词', value: 'WORDS' });
+          options.push({ label: '仅测试语法', value: 'GRAMMAR' });
+          options.push({ label: '单词和语法混合', value: 'MIXED' });
+        }
+
         return {
           title: '选择测试内容',
+          options,
+        };
+      }
+      case 'timeLimit':
+        return {
+          title: '选择时间限制',
           options: [
-            { label: '仅测试单词', value: 'WORDS' },
-            { label: '仅测试语法', value: 'GRAMMAR' },
-            { label: '单词和语法混合', value: 'MIXED' },
+            { label: '无限制', value: 0 },
+            { label: '5 分钟', value: 5 },
+            { label: '10 分钟', value: 10 },
+            { label: '15 分钟', value: 15 },
+            { label: '30 分钟', value: 30 },
+            { label: '自定义...', value: 'CUSTOM' }
           ],
         };
       case 'wordLevel':
         return {
           title: '选择单词测试等级',
-          options: ['N5', 'N4', 'N3', 'N2', 'N1'].map(l => ({ label: l, value: l })),
+          options: ['N5', 'N4', 'N3', 'N2', 'N1'].map(l => ({ 
+            label: `${l} (${levelDistribution[l] ?? 0})`, 
+            value: l 
+          })),
         };
       case 'grammarLevel':
         return {
           title: '选择语法测试等级',
-          options: ['N5', 'N4', 'N3', 'N2', 'N1'].map(l => ({ label: l, value: l })),
+          options: ['N5', 'N4', 'N3', 'N2', 'N1'].map(l => ({ 
+            label: `${l} (${levelDistribution[l] ?? 0})`, 
+            value: l 
+          })),
         };
       case 'questionTypeCount':
         return {
           title: '题型分布设置',
           options: [
-            { label: '经典分布 (4选择/3手打/2连线/1排序)', value: '4_3_2_1' },
-            { label: '平均分布 (5选择/5手打/5连线/5排序)', value: '5_5_5_5' },
-            { label: '多选多打 (8选择/8手打/2连线/2排序)', value: '8_8_2_2' },
+            { label: '经典分布 (4选择/3手写/2卡片/1排序)', value: '4_3_2_1' },
+            { label: '平均分布 (5选择/5手写/5卡片/5排序)', value: '5_5_5_5' },
+            { label: '多选多打 (8选择/8手写/2卡片/2排序)', value: '8_8_2_2' },
           ],
+        };
+      case 'count_mc':
+      case 'count_typing':
+      case 'count_card':
+      case 'count_sorting':
+        return {
+          title: '设置题目数量',
+          options: [1, 2, 3, 4, 5, 8, 10, 15, 20].map(n => ({ label: `${n} 题`, value: n })),
         };
       default:
         return { title: '', options: [] };
     }
-  }, [currentSelector]);
+  }, [currentSelector, levelDistribution]);
 
   const handleSelect = (value: string | number) => {
     if (!currentSelector) return;
+
+    if (value === 'CUSTOM') {
+      const isTime = currentSelector === 'timeLimit';
+      setCustomInputTitle(isTime ? "自定义时间限制" : "自定义题目数量");
+      setCustomInputPlaceholder(isTime ? "请输入分钟数" : "请输入题目数量");
+      setCustomInputValue(isTime ? config.timeLimitMinutes.toString() : config.questionCount.toString());
+      setOnCustomConfirm(() => (val: number) => {
+        if (isTime) updateConfig({ timeLimitMinutes: val });
+        else updateConfig({ questionCount: val });
+      });
+      setSelectorOpen(false);
+      setCustomInputOpen(true);
+      return;
+    }
     
     switch (currentSelector) {
       case 'questionCount': updateConfig({ questionCount: value as number }); break;
       case 'questionSource': updateConfig({ questionSource: value as QuestionSource }); break;
+      case 'timeLimit': updateConfig({ timeLimitMinutes: value as number }); break;
       case 'wrongAnswerRemoval': updateConfig({ wrongAnswerRemovalThreshold: value as number }); break;
       case 'contentType': updateConfig({ testContentType: value as TestContentType }); break;
       case 'wordLevel': {
@@ -203,6 +283,25 @@ export default function TestSettingsPage() {
             card_matching: parts[2],
             sorting: parts[3]
           }
+        });
+        break;
+      }
+      case 'count_mc':
+      case 'count_typing':
+      case 'count_card':
+      case 'count_sorting': {
+        const typeMap: Record<string, string> = {
+          'count_mc': 'multiple_choice',
+          'count_typing': 'typing',
+          'count_card': 'card_matching',
+          'count_sorting': 'sorting'
+        };
+        const type = typeMap[currentSelector];
+        const newCounts = { ...config.comprehensiveQuestionCounts, [type]: value as number };
+        const newTotal = Object.values(newCounts).reduce((a, b) => a + b, 0);
+        updateConfig({ 
+          comprehensiveQuestionCounts: newCounts,
+          questionCount: newTotal
         });
         break;
       }
@@ -273,7 +372,7 @@ export default function TestSettingsPage() {
               <SettingRow 
                 label="时间限制" 
                 value={config.timeLimitMinutes === 0 ? "无限制" : `${config.timeLimitMinutes} 分钟`} 
-                onClick={() => {}} // Simple mock for now
+                onClick={() => openSelector('timeLimit')} 
               />
               <div className={styles.divider} />
 
@@ -307,11 +406,29 @@ export default function TestSettingsPage() {
 
               {showDistribution && (
                 <>
-                  <SettingRow 
-                    label="题型分布" 
-                    value={`选${config.comprehensiveQuestionCounts?.multiple_choice ?? 4} 打${config.comprehensiveQuestionCounts?.typing ?? 3} 卡${config.comprehensiveQuestionCounts?.card_matching ?? 2} 排${config.comprehensiveQuestionCounts?.sorting ?? 1}`}
-                    onClick={() => openSelector('questionTypeCount')} 
-                  />
+                  <h3 className={styles.subSectionTitle}>综合题型分布</h3>
+                  <div className={styles.distributionSettings}>
+                    <SettingRow 
+                      label="选择题数量" 
+                      value={`${config.comprehensiveQuestionCounts.multiple_choice} 题`} 
+                      onClick={() => openSelector('count_mc')} 
+                    />
+                    <SettingRow 
+                      label="手写题数量" 
+                      value={`${config.comprehensiveQuestionCounts.typing} 题`} 
+                      onClick={() => openSelector('count_typing')} 
+                    />
+                    <SettingRow 
+                      label="卡片匹配数量" 
+                      value={`${config.comprehensiveQuestionCounts.card_matching} 题`} 
+                      onClick={() => openSelector('count_card')} 
+                    />
+                    <SettingRow 
+                      label="汉字排序数量" 
+                      value={`${config.comprehensiveQuestionCounts.sorting} 题`} 
+                      onClick={() => openSelector('count_sorting')} 
+                    />
+                  </div>
                   <div className={styles.divider} />
                 </>
               )}
@@ -359,6 +476,12 @@ export default function TestSettingsPage() {
                 label="选项乱序" 
                 checked={config.shuffleOptions} 
                 onCheckedChange={(val) => updateConfig({ shuffleOptions: val })} 
+              />
+              <div className={styles.divider} />
+              <SwitchRow 
+                label="显示题目提示" 
+                checked={config.showHint} 
+                onCheckedChange={(val) => updateConfig({ showHint: val })} 
               />
               <div className={styles.divider} />
               <SwitchRow 
@@ -416,6 +539,7 @@ export default function TestSettingsPage() {
             currentSelector === 'grammarLevel' ? config.selectedGrammarLevels :
             currentSelector === 'questionCount' ? config.questionCount :
             currentSelector === 'questionSource' ? config.questionSource :
+            currentSelector === 'timeLimit' ? config.timeLimitMinutes :
             currentSelector === 'wrongAnswerRemoval' ? config.wrongAnswerRemovalThreshold :
             currentSelector === 'contentType' ? config.testContentType :
             currentSelector === 'questionTypeCount' ? `${config.comprehensiveQuestionCounts?.multiple_choice ?? 4}_${config.comprehensiveQuestionCounts?.typing ?? 3}_${config.comprehensiveQuestionCounts?.card_matching ?? 2}_${config.comprehensiveQuestionCounts?.sorting ?? 1}` :
@@ -425,6 +549,15 @@ export default function TestSettingsPage() {
         open={selectorOpen}
         onOpenChange={setSelectorOpen}
         multiple={currentSelector === 'wordLevel' || currentSelector === 'grammarLevel'}
+      />
+
+      <CustomNumberInputDialog
+        isOpen={customInputOpen}
+        onOpenChange={setCustomInputOpen}
+        title={customInputTitle}
+        placeholder={customInputPlaceholder}
+        initialValue={customInputValue}
+        onConfirm={onCustomConfirm}
       />
 
     </div>

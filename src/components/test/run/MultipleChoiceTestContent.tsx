@@ -4,6 +4,7 @@ import { FuriganaText } from '@/components/common/FuriganaText';
 import { TestQuestion } from '@/lib/services/testService';
 import { CheckCircle, XCircle } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { ExplanationCard } from './ExplanationCard';
 
 interface MultipleChoiceTestContentProps {
   question: TestQuestion;
@@ -99,15 +100,11 @@ export function MultipleChoiceTestContent({
           </div>
         </div>
 
-        {isAnswered && question.content?.explanation && (
-          <motion.div 
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className={styles.explanationCard}
-          >
-            <h4 className={styles.explanationTitle}>解析</h4>
-            <p className={styles.explanationText}>{question.content.explanation}</p>
-          </motion.div>
+        {isAnswered && (
+          <ExplanationCard 
+            itemType={question.itemType} 
+            content={question.content} 
+          />
         )}
       </motion.div>
     </AnimatePresence>

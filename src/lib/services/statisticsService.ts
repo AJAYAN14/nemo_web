@@ -901,6 +901,33 @@ export const statisticsService = {
       fetchItemsCount('grammar')
     ]);
     return wordCount + grammarCount;
+  },
+
+  /**
+   * Get distribution of available items across levels for current filters
+   */
+  async getTestLevelDistribution(
+    userId: string,
+    source: QuestionSource,
+    contentType: TestContentType,
+    resetHour: number = 4
+  ): Promise<Record<string, number>> {
+    const levels = ['N5', 'N4', 'N3', 'N2', 'N1'];
+    const distribution: Record<string, number> = {};
+
+    await Promise.all(levels.map(async (level) => {
+      const count = await this.getTestItemCount(
+        userId,
+        source,
+        contentType,
+        [level],
+        [level],
+        resetHour
+      );
+      distribution[level] = count;
+    }));
+
+    return distribution;
   }
 };
 

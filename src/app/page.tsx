@@ -1,49 +1,30 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import clsx from "clsx";
+import React, { useEffect, useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabase";
 import { 
-  ChevronRight,
-  RotateCcw,
-  CheckCircle2,
-  ArrowRight,
+  Play,
   Library,
   Languages,
-  Trophy,
-  Grid3X3
+  Grid3X3,
+  Flame,
+  CheckCircle2,
+  Sparkles,
+  ArrowRight
 } from "lucide-react";
-import styles from "./page.module.css";
-import { SettingsModal } from "@/components/ui/SettingsModal";
+import { motion } from "framer-motion";
 import { ModernCircularProgress } from "@/components/ui/ModernCircularProgress";
 import { statisticsService } from "@/lib/services/statisticsService";
 import { settingsService } from "@/lib/services/settingsService";
 import { MemoryPanorama } from "@/components/statistics/MemoryPanorama";
 import { StudyConfig } from "@/types/study";
 import { SakuraLoader } from "@/components/common/SakuraLoader";
-import { ClayCard } from "@/components/clay/ClayCard";
-import { motion } from "framer-motion";
-
-const containerVariants = {
-  hidden: { opacity: 0 },
-  visible: {
-    opacity: 1,
-    transition: {
-      staggerChildren: 0.1,
-    },
-  },
-};
-
-const itemVariants = {
-  hidden: { opacity: 0, y: 20 },
-  visible: { opacity: 1, y: 0, transition: { duration: 0.4, ease: [0.22, 1, 0.36, 1] as any } },
-};
+import styles from "./page.module.css";
 
 export default function Home() {
   const router = useRouter();
-  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [mode, setMode] = useState<'word' | 'grammar'>(() => {
     if (typeof window === 'undefined') return 'word';
     const stored = localStorage.getItem('nemo_study_settings');
@@ -54,37 +35,14 @@ export default function Home() {
     } catch { return 'word'; }
   });
 
-  const [wordLevel, setWordLevel] = useState<string>(() => {
-    if (typeof window === 'undefined') return 'N5';
-    const stored = localStorage.getItem('nemo_study_settings');
-    if (!stored) return 'N5';
-    try {
-      const config: any = JSON.parse(stored);
-      return config.wordLevel || config.level || 'N5';
-    } catch { return 'N5'; }
-  });
-
-  const [grammarLevel, setGrammarLevel] = useState<string>(() => {
-    if (typeof window === 'undefined') return 'N5';
-    const stored = localStorage.getItem('nemo_study_settings');
-    if (!stored) return 'N5';
-    try {
-      const config: any = JSON.parse(stored);
-      return config.grammarLevel || config.level || 'N5';
-    } catch { return 'N5'; }
-  });
-
-  const [isLevelPopoverOpen, setIsLevelPopoverOpen] = useState(false);
   const [greeting, setGreeting] = useState("");
   const [currentDate, setCurrentDate] = useState("");
 
   useEffect(() => {
     const hour = new Date().getHours();
     const timeGreeting = hour < 5 ? "夜深了" :
-                         hour < 9 ? "早上好" :
-                         hour < 12 ? "上午好" :
-                         hour < 14 ? "中午好" :
-                         hour < 19 ? "下午好" : "晚上好";
+                         hour < 12 ? "早上好" :
+                         hour < 18 ? "下午好" : "晚上好";
     setGreeting(timeGreeting);
 
     const formatter = new Intl.DateTimeFormat('zh-CN', { weekday: 'long', month: 'long', day: 'numeric' });
@@ -99,7 +57,7 @@ export default function Home() {
     }
   });
 
-  const { data: dashboardData, isLoading: dataLoading, refetch } = useQuery({
+  const { data: dashboardData, isLoading: dataLoading } = useQuery({
     queryKey: ["dashboard-data", user?.id],
     queryFn: async () => {
       const config = await settingsService.getStudyConfig();
@@ -110,263 +68,271 @@ export default function Home() {
       return { stats, memoryPanorama };
     },
     enabled: !!user,
-    staleTime: 0,
-    gcTime: 1000 * 60 * 60,
-    refetchOnMount: 'always',
-    refetchOnWindowFocus: true,
   });
 
-  const handleLevelSelect = (lv: string) => {
-    if (mode === 'word') setWordLevel(lv);
-    else setGrammarLevel(lv);
-    setIsLevelPopoverOpen(false);
-  };
-
-  const persistSettings = (m: 'word' | 'grammar', wl: string, gl: string) => {
-    localStorage.setItem('nemo_study_settings', JSON.stringify({
-      mode: m === 'word' ? 'WORDS_ONLY' : 'GRAMMAR_ONLY',
-      wordLevel: wl,
-      grammarLevel: gl,
-    }));
-  };
-
-  useEffect(() => {
-    persistSettings(mode, wordLevel, grammarLevel);
-  }, [mode, wordLevel, grammarLevel]);
-
-  useEffect(() => {
-    if (user) refetch();
-  }, [user, refetch]);
-
-  useEffect(() => {
-    const refreshStats = () => { if (user) void refetch(); };
-    const handleVisibility = () => { if (document.visibilityState === 'visible') refreshStats(); };
-    window.addEventListener('focus', refreshStats);
-    document.addEventListener('visibilitychange', handleVisibility);
-    return () => {
-      window.removeEventListener('focus', refreshStats);
-      document.removeEventListener('visibilitychange', handleVisibility);
-    };
-  }, [user, refetch]);
-
-  useEffect(() => {
-    if (!userLoading && !user) router.push('/login');
-  }, [user, userLoading, router]);
-
-  if (userLoading || dataLoading) {
-    return (
-      <div className={styles.loadingScreen}>
-        <SakuraLoader />
-        <p className={styles.loadingText}>正在同步学习进度...</p>
-      </div>
-    );
-  }
-
-  if (!user || !dashboardData) return null;
-
-  const { stats } = dashboardData;
   const isWordMode = mode === 'word';
-  const selectedLevel = isWordMode ? wordLevel : grammarLevel;
-  const currentProgress = isWordMode ? stats.todayLearnedWords : stats.todayLearnedGrammars;
-  const dailyGoal = isWordMode ? stats.dailyGoal : stats.grammarDailyGoal;
-  const progressPercent = isWordMode ? stats.wordGoalProgress : stats.grammarGoalProgress;
-  const reviewedToday = isWordMode ? stats.todayReviewedWords : stats.todayReviewedGrammars;
-  const itemsDue = isWordMode ? stats.dueWords : stats.dueGrammars;
-  const dueNew = isWordMode ? stats.dueNewWords : stats.dueNewGrammars;
-  const dueLearn = isWordMode ? stats.dueLearningWords : stats.dueLearningGrammars;
-  const dueReview = isWordMode ? stats.dueReviewWords : stats.dueReviewGrammars;
-  
-  const hasTasks = dueNew > 0 || dueLearn > 0 || dueReview > 0;
-  
-  let mainActionLabel = "开始学习";
-  if (dueReview > 0) {
-    mainActionLabel = "开始复习";
-  } else if (dueNew === 0 && dueLearn > 0) {
-    mainActionLabel = "完成今日任务";
-  } else if (!hasTasks) {
-    mainActionLabel = "今日已达成";
-  }
+  const stats = dashboardData?.stats;
+
+  const hasTasks = useMemo(() => {
+    if (!stats) return false;
+    return (isWordMode ? stats.dueNewWords + stats.dueLearningWords + stats.dueReviewWords : stats.dueNewGrammars + stats.dueLearningGrammars + stats.dueReviewGrammars) > 0;
+  }, [stats, isWordMode]);
+
+  const newProgressPercent = useMemo(() => {
+    if (!stats) return 0;
+    return isWordMode ? stats.wordGoalProgress : stats.grammarGoalProgress;
+  }, [stats, isWordMode]);
+
+  const reviewProgressPercent = useMemo(() => {
+    if (!stats) return 0;
+    const reviewed = isWordMode ? stats.todayReviewedWords : stats.todayReviewedGrammars;
+    const remaining = isWordMode 
+      ? (stats.dueLearningWords + stats.dueReviewWords) 
+      : (stats.dueLearningGrammars + stats.dueReviewGrammars);
+    
+    const total = reviewed + remaining;
+    if (total === 0) return 100;
+    return Math.min(100, Math.round((reviewed / total) * 100));
+  }, [stats, isWordMode]);
+
+  const setStudyMode = (newMode: 'word' | 'grammar') => {
+    setMode(newMode);
+    const stored = localStorage.getItem('nemo_study_settings');
+    if (stored) {
+      try {
+        const config = JSON.parse(stored);
+        config.mode = newMode === 'grammar' ? 'GRAMMAR_ONLY' : 'WORD_ONLY';
+        localStorage.setItem('nemo_study_settings', JSON.stringify(config));
+        settingsService.updateStudyConfig(config);
+      } catch (e) {}
+    }
+  };
 
   return (
     <motion.main 
-      className={clsx(styles.container, styles.hasBottomPadding)}
-      initial="hidden"
-      animate="visible"
-      variants={containerVariants}
+      className={styles.mainContainer}
+      initial={{ opacity: 0, y: 15 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
     >
-      {/* 🚀 Immersive Dashboard Header */}
-      <motion.header className={styles.header} variants={itemVariants}>
-        <div className={styles.headerText}>
-          <p className={styles.dateText}>{currentDate}</p>
-          <h1 className={styles.greeting}>{greeting}，{user.email?.split('@')[0] || 'Nemo'}</h1>
-        </div>
-        <div className={styles.avatar}>
-           {user.email?.[0].toUpperCase()}
-        </div>
-      </motion.header>
-
-      {/* 🛠️ Dynamic Controls */}
-      <motion.section className={styles.controlsBar} variants={itemVariants}>
-        <button 
-          className={styles.levelPill}
-          onClick={() => setIsLevelPopoverOpen(!isLevelPopoverOpen)}
-        >
-          <span className={isWordMode ? styles.labelWord : styles.labelGrammar}>JLPT {selectedLevel}</span>
-          <ChevronRight size={14} className={clsx(styles.levelChevron, isLevelPopoverOpen && styles.levelChevronOpen)} />
+      <div className={styles.contentWrapper}>
+        <header className={styles.header}>
+          <div className={styles.headerGroup}>
+            <h1 className={styles.greeting}>
+              {greeting}，{user?.user_metadata?.full_name || user?.email?.split('@')[0] || '同学'}
+            </h1>
+            <p className={styles.date}>{currentDate}</p>
+          </div>
           
-          {isLevelPopoverOpen && (
-            <div className={styles.levelPopover} onClick={(e) => e.stopPropagation()}>
-              {['N5', 'N4', 'N3', 'N2', 'N1'].map((lv) => (
-                <div 
-                  key={lv}
-                  className={clsx(styles.levelOption, selectedLevel === lv && styles.levelOptionActive)}
-                  onClick={() => handleLevelSelect(lv)}
-                >
-                  {lv}
-                </div>
-              ))}
-            </div>
-          )}
-        </button>
-
-        <div className={styles.modeSwitch}>
-          <button 
-            className={clsx(isWordMode && styles.modeActiveWord)} 
-            onClick={() => setMode('word')}
-          >
-            单词
-          </button>
-          <button 
-            className={clsx(!isWordMode && styles.modeActiveGrammar)} 
-            onClick={() => setMode('grammar')}
-          >
-            语法
-          </button>
-        </div>
-      </motion.section>
-
-      {/* 📊 Central Progress Card */}
-      <motion.section variants={itemVariants}>
-        <ClayCard className={styles.heroCard} padding="large">
-          <p className={styles.heroLabel}>今日新学进度</p>
-          <div className={styles.ringWrapper}>
-            <ModernCircularProgress
-              value={progressPercent}
-              size={140}
-              color={isWordMode ? 'var(--primary-color)' : '#10B981'}
+          <div className={styles.modeToggleWrapper}>
+            <button 
+              className={`${styles.modeButton} ${isWordMode ? styles.modeButtonActive : styles.modeButtonInactive}`}
+              onClick={() => setStudyMode('word')}
             >
-              <span className={styles.ringValue}>{currentProgress}</span>
-            </ModernCircularProgress>
+              词汇
+            </button>
+            <button 
+              className={`${styles.modeButton} ${!isWordMode ? styles.modeButtonActive : styles.modeButtonInactive}`}
+              onClick={() => setStudyMode('grammar')}
+            >
+              语法
+            </button>
           </div>
-          <p className={styles.heroGoalText}>新学目标 {dailyGoal}</p>
-        </ClayCard>
-      </motion.section>
+        </header>
 
-      {/* 🧠 Memory Depth Panorama */}
-      <motion.section variants={itemVariants}>
-        <MemoryPanorama data={dashboardData.memoryPanorama} />
-      </motion.section>
+        {(userLoading || dataLoading) ? (
+          <div className={styles.inlineLoader}>
+            <SakuraLoader />
+          </div>
+        ) : (!user || !dashboardData || !stats) ? (
+          <div className={styles.errorState}>
+             <CheckCircle2 size={40} style={{ marginBottom: '1rem', opacity: 0.2 }} />
+             <p>准备就绪，正在同步数据...</p>
+          </div>
+        ) : (
+          <>
+            <section className={styles.actionSection}>
+              {/* Hero Card */}
+              <div 
+                onClick={() => hasTasks && router.push(`/learn?type=${mode}`)}
+                className={`${styles.heroCard} ${hasTasks ? styles.heroShadowIndigo : styles.heroShadowEmerald}`}
+              >
+                <div className={hasTasks ? styles.heroBgGradientTasks : styles.heroBgGradientDone}></div>
+                <div className={styles.heroOverlay}></div>
+                
+                <div className={styles.heroBadge}>
+                  <Sparkles size={14} />
+                  <span>专注训练</span>
+                </div>
 
-      {/* ⚡ Primary Action & Secondary Context */}
-      <motion.section className={styles.actionArea} variants={itemVariants}>
-        <button 
-          className={clsx(
-            styles.mainActionBtn, 
-            isWordMode ? styles.bgWord : styles.bgGrammar,
-            !hasTasks && styles.btnDisabled
-          )}
-          onClick={() => hasTasks && router.push(`/learn?type=${mode === 'word' ? 'word' : 'grammar'}`)}
-          disabled={!hasTasks}
-        >
-          {mainActionLabel}
-          <ArrowRight size={20} />
-        </button>
+                <div className={styles.heroContent}>
+                  <h2 className={styles.heroTitle}>
+                    {hasTasks ? '开始学习' : '今日达成'}
+                  </h2>
+                  <p className={styles.heroSub}>
+                    {hasTasks ? `进入${isWordMode ? '单词' : '语法'}流` : '保持优秀节奏。'}
+                  </p>
+                  
+                  {hasTasks && (
+                    <div className={styles.heroAction}>
+                      <div className={styles.premiumButton}>
+                        <Play size={18} fill="currentColor" />
+                        <span>立即开始</span>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+                
+              {/* Dual Progress Card */}
+              <div className={styles.statCard}>
+                <div className={styles.statCardHeader}>
+                  <p className={styles.statCardTitle}>今日进度</p>
+                  <div className={styles.statCardIconBadge}>
+                    <Flame size={18} color="#6366f1" />
+                  </div>
+                </div>
+                <div className={styles.dualProgressContent}>
+                  <div className={styles.progressItem}>
+                    <div style={{width: '94px', height: '94px'}}>
+                      <ModernCircularProgress
+                        value={newProgressPercent}
+                        size={94}
+                        strokeWidth={12}
+                        color="#4F46E5"
+                        trackColor="rgba(79, 70, 229, 0.08)"
+                      >
+                        <div style={{fontSize: '1.3rem', fontWeight: 800, color: '#1e293b', letterSpacing: '-0.02em'}}>
+                          {Math.round(newProgressPercent)}%
+                        </div>
+                      </ModernCircularProgress>
+                    </div>
+                    <span className={styles.progressLabel}>新词学习</span>
+                  </div>
 
-        {/* 📊 Contextual Task Board (Switches with Mode) */}
-        <div className={styles.taskBoard}>
-          <div className={styles.taskBoardContent}>
-            <div className={styles.taskItem}>
-              <span className={clsx(styles.taskCount, styles.textNew)}>{isWordMode ? stats.dueNewWords : stats.dueNewGrammars}</span>
-              <span className={styles.taskLabel}>{isWordMode ? '新词' : '新语法'}</span>
-            </div>
-            <div className={styles.taskItem}>
-              <span className={clsx(styles.taskCount, styles.textLearn)}>{isWordMode ? stats.dueLearningWords : stats.dueLearningGrammars}</span>
-              <span className={styles.taskLabel}>学习</span>
-            </div>
-            <div className={styles.taskItem}>
-              <span className={clsx(styles.taskCount, styles.textReview)}>{isWordMode ? stats.dueReviewWords : stats.dueReviewGrammars}</span>
-              <span className={styles.taskLabel}>复习</span>
-            </div>
-          </div>
-        </div>
+                  <div className={styles.progressItem}>
+                    <div style={{width: '94px', height: '94px'}}>
+                      <ModernCircularProgress
+                        value={reviewProgressPercent}
+                        size={94}
+                        strokeWidth={12}
+                        color="#10b981"
+                        trackColor="rgba(16, 185, 129, 0.08)"
+                      >
+                        <div style={{fontSize: '1.3rem', fontWeight: 800, color: '#1e293b', letterSpacing: '-0.02em'}}>
+                          {Math.round(reviewProgressPercent)}%
+                        </div>
+                      </ModernCircularProgress>
+                    </div>
+                    <span className={styles.progressLabel}>复习进度</span>
+                  </div>
+                </div>
+              </div>
 
-        <div className={styles.secondaryStats}>
-          <ClayCard padding="none" interactive onClick={() => router.push('/review/prep')}>
-            <div className={styles.miniStatCard}>
-              <span className={styles.miniStatLabel}>今日已复习</span>
-              <span className={styles.miniStatValue}>{isWordMode ? stats.todayReviewedWords : stats.todayReviewedGrammars}</span>
-            </div>
-          </ClayCard>
-          <ClayCard padding="none">
-            <div className={styles.miniStatCard}>
-              <span className={styles.miniStatLabel}>待复习总数</span>
-              <span className={styles.miniStatValue}>{isWordMode ? stats.dueWords : stats.dueGrammars}</span>
-            </div>
-          </ClayCard>
-        </div>
-      </motion.section>
+              {/* Task Breakdown (Restored) */}
+              <div className={styles.statCard}>
+                <div className={styles.statCardHeader}>
+                  <p className={styles.statCardTitle}>任务清单</p>
+                  <div className={styles.statCardIconBadge} style={{ backgroundColor: 'rgba(16, 185, 129, 0.08)' }}>
+                    <CheckCircle2 size={18} color="#10b981" />
+                  </div>
+                </div>
+                <div className={styles.taskRowsContainer}>
+                  <TaskRow color="#6366f1" label="今日新学" count={isWordMode ? stats.dueNewWords : stats.dueNewGrammars} />
+                  <TaskRow color="#f59e0b" label="学习中" count={isWordMode ? stats.dueLearningWords : stats.dueLearningGrammars} />
+                  <TaskRow color="#10b981" label="待复习" count={isWordMode ? stats.dueReviewWords : stats.dueReviewGrammars} />
+                </div>
+              </div>
+            </section>
 
-      {/* 📚 Resource Menu */}
-      <motion.h2 className={styles.sectionTitle} variants={itemVariants}>学习资源</motion.h2>
-      <motion.section className={styles.resourceList} variants={itemVariants}>
-        <div className={styles.resourceItem} onClick={() => router.push('/heatmap')}>
-          <div className={styles.resIcon} style={{ backgroundColor: '#FAF5FF' }}>
-            <Trophy size={24} color="#8B5CF6" />
-          </div>
-          <div className={styles.resInfo}>
-            <span className={styles.resTitle}>学习热力图</span>
-            <span className={styles.resSubtitle}>年度回顾与数据高光</span>
-          </div>
-          <ChevronRight size={18} className={styles.resArrow} />
-        </div>
+            <section className={styles.insightsSection}>
+              <div className={styles.panoramaCard}>
+                <div className={styles.sectionHeader}>
+                  <div className={styles.sectionTitleGroup}>
+                    <div className={styles.sparklesWrap}>
+                      <Sparkles color="#6366f1" size={20} />
+                    </div>
+                    <h3 className={styles.sectionTitle}>记忆全景</h3>
+                  </div>
+                  <button className={styles.textButton} onClick={() => router.push('/progress')}>
+                    详细统计 <ArrowRight size={14} />
+                  </button>
+                </div>
+                <div className={styles.panoramaContent}>
+                  <p className={styles.panoramaSub}>全库记忆全景</p>
+                  <MemoryPanorama data={dashboardData.memoryPanorama} />
+                </div>
+              </div>
 
-        <div className={styles.resourceItem} onClick={() => router.push('/library')}>
-          <div className={styles.resIcon} style={{ backgroundColor: '#EEF2FF' }}>
-            <Library size={24} color="#4F46E5" />
-          </div>
-          <div className={styles.resInfo}>
-            <span className={styles.resTitle}>词库浏览</span>
-            <span className={styles.resSubtitle}>管理已学词汇与收藏</span>
-          </div>
-          <ChevronRight size={18} className={styles.resArrow} />
-        </div>
-
-        <div className={styles.resourceItem} onClick={() => router.push('/grammar')}>
-          <div className={styles.resIcon} style={{ backgroundColor: '#F0FDF4' }}>
-            <Languages size={24} color="#10B981" />
-          </div>
-          <div className={styles.resInfo}>
-            <span className={styles.resTitle}>语法点</span>
-            <span className={styles.resSubtitle}>常用结构深度解析</span>
-          </div>
-          <ChevronRight size={18} className={styles.resArrow} />
-        </div>
-        <div className={styles.resourceItem} onClick={() => router.push('/library/kana')}>
-          <div className={styles.resIcon} style={{ backgroundColor: '#FFF1F2' }}>
-            <Grid3X3 size={24} color="#F43F5E" />
-          </div>
-          <div className={styles.resInfo}>
-            <span className={styles.resTitle}>五十音图</span>
-            <span className={styles.resSubtitle}>基础假名发音与书写</span>
-          </div>
-          <ChevronRight size={18} className={styles.resArrow} />
-        </div>
-      </motion.section>
-
-      <SettingsModal 
-        isOpen={isSettingsOpen} 
-        onClose={() => setIsSettingsOpen(false)} 
-      />
+              <div className={styles.navGrid}>
+                <NavCard 
+                  icon={<Flame size={28} />} 
+                  title="学习热度" 
+                  desc="热力全景"
+                  colorTheme={{bg: '#fff7ed', border: '#ffedd5', text: '#ea580c'}}
+                  onClick={() => router.push('/heatmap')} 
+                />
+                <NavCard 
+                  icon={<Library size={28} />} 
+                  title="词库管理" 
+                  desc="同步进度"
+                  colorTheme={{bg: '#ecfdf5', border: '#d1fae5', text: '#059669'}}
+                  onClick={() => router.push('/library')} 
+                />
+                <NavCard 
+                  icon={<Languages size={28} />} 
+                  title="语法专区" 
+                  desc="结构拆解"
+                  colorTheme={{bg: '#eef2ff', border: '#e0e7ff', text: '#4f46e5'}}
+                  onClick={() => router.push('/grammar')} 
+                />
+                <NavCard 
+                  icon={<Grid3X3 size={28} />} 
+                  title="五十音图" 
+                  desc="基础训练"
+                  colorTheme={{bg: '#fff1f2', border: '#ffe4e6', text: '#e11d48'}}
+                  onClick={() => router.push('/library/kana')} 
+                />
+              </div>
+            </section>
+          </>
+        )}
+      </div>
     </motion.main>
+  );
+}
+
+function TaskRow({ color, label, count }: { color: string, label: string, count: number }) {
+  return (
+    <div className={styles.taskRow} style={{ marginBottom: '1rem' }}>
+      <span className={styles.taskLabel}>
+        <span className={styles.taskDot} style={{ backgroundColor: color }}></span>
+        {label}
+      </span>
+      <span className={styles.taskCount}>
+        {count}
+      </span>
+    </div>
+  );
+}
+
+function NavCard({ icon, title, desc, colorTheme, onClick }: { icon: React.ReactNode, title: string, desc: string, colorTheme: {bg: string, border: string, text: string}, onClick: () => void }) {
+  return (
+    <div 
+      onClick={onClick} 
+      className={styles.navCard}
+      style={{ backgroundColor: colorTheme.bg, borderColor: colorTheme.border, color: colorTheme.text }}
+    >
+      <div className={styles.navIconBox}>
+         {icon}
+      </div>
+      <div className={styles.navFooter}>
+        <div className={styles.navInfo}>
+          <span className={styles.navTitle} style={{ fontWeight: 700, display: 'block' }}>{title}</span>
+          <span className={styles.navDesc} style={{ fontSize: '0.75rem', opacity: 0.8 }}>{desc}</span>
+        </div>
+        <ArrowRight size={18} className={styles.navArrow} />
+      </div>
+    </div>
   );
 }

@@ -21,22 +21,24 @@ export function ClientLayoutWrapper({ children }: { children: React.ReactNode })
   const sidebarWidth = isSidebarCollapsed ? 80 : 240;
 
   return (
-    <main style={{ 
-      // Desktop: Shift content if sidebar is showing
-      transition: "padding 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
-      paddingLeft: !isImmersive ? `${sidebarWidth}px` : "0px",
-      
-      // Mobile: Add space at bottom if bottom nav is showing
-      paddingBottom: !isImmersive ? "80px" : "0px"
-    }}>
+    <main 
+      className={!isImmersive ? "with-nav-padding" : ""}
+      style={{ transition: "padding 0.3s cubic-bezier(0.4, 0, 0.2, 1)" }}
+    >
       {children}
       
-      {/* Global CSS for responsiveness injected here to react to isImmersive and collapse state */}
       <style jsx global>{`
+        /* Mobile: Add bottom padding for the navigation bar, no left padding */
+        main.with-nav-padding {
+          padding-bottom: 80px;
+          padding-left: 0;
+        }
+        
+        /* Desktop: Add left padding for the sidebar, remove bottom padding */
         @media (min-width: 641px) {
-          main { 
-            padding-left: ${!isImmersive ? sidebarWidth + 'px' : '0'} !important;
-            padding-bottom: 0 !important;
+          main.with-nav-padding { 
+            padding-left: ${sidebarWidth}px;
+            padding-bottom: 0;
           }
         }
       `}</style>

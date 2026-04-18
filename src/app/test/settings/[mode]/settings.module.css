@@ -146,6 +146,18 @@
   font-weight: 500;
 }
 
-.dataInsufficient {
-  color: #EF4444;
+
+.subSectionTitle {
+  font-size: 13px;
+  font-weight: 600;
+  color: #9CA3AF;
+  margin: 16px 0 8px 16px;
+  text-transform: uppercase;
+}
+
+.distributionSettings {
+  background: #F9FAFB;
+  border-radius: 12px;
+  margin: 0 16px 16px;
+  border: 1px solid #F3F4F6;
 }

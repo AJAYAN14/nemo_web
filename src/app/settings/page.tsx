@@ -30,7 +30,8 @@ import {
   Layers,
   Info,
   LogOut,
-  CheckCircle2
+  CheckCircle2,
+  User
 } from 'lucide-react';
 import { clsx } from 'clsx';
 
@@ -126,6 +127,22 @@ export default function SettingsPage() {
       </header>
 
       <div className={styles.content}>
+        {/* 账户 */}
+        <section className={styles.section}>
+          <h2 className={styles.sectionTitle}>账户</h2>
+          <SettingsCard>
+            <SquircleSettingItem 
+              icon={<User size={22} />} 
+              iconColor="#4F46E5"
+              title="账户管理"
+              subtitle="个人资料、安全与账号状态"
+              onClick={() => router.push('/settings/account')}
+              showDivider={false}
+              trailing={<ChevronRight size={14} opacity={0.4} />}
+            />
+          </SettingsCard>
+        </section>
+
         {/* 外观 */}
         <section className={styles.section}>
           <h2 className={styles.sectionTitle}>外观</h2>

@@ -18,6 +18,8 @@ import styles from "./test.module.css";
 import { ClayCard } from "@/components/clay/ClayCard";
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { testService } from "@/lib/services/testService";
 
 
 const containerVariants = {
@@ -75,8 +77,51 @@ function CircularProgress({ percent, color, label }: { percent: number; color: s
   );
 }
 
+
 export default function TestPage() {
+  const router = useRouter();
   const [activeSlide, setActiveSlide] = useState(0);
+  const [statsData, setStatsData] = useState({ wrong: 0, favorite: 0 });
+  const [testStats, setTestStats] = useState({
+    todayCount: 0,
+    todayAccuracy: 0,
+    todayStreak: 0,
+    totalCount: 0,
+    totalAccuracy: 0,
+    longestStreak: 0
+  });
+
+  const handleQuickStart = useCallback((source: 'WRONG' | 'FAVORITE') => {
+    const config = {
+      source: source,
+      contentType: 'BOTH',
+      questionCount: 15,
+      levels: ['ALL'],
+      categories: []
+    };
+    const configStr = encodeURIComponent(JSON.stringify(config));
+    router.push(`/test/run/comprehensive?config=${configStr}`);
+  }, [router]);
+
+  useEffect(() => {
+    async function loadStats() {
+      try {
+        const { supabase } = await import('@/lib/supabase');
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          const [counts, stats] = await Promise.all([
+            testService.fetchStatsCounts(user.id),
+            testService.fetchTestStats(user.id)
+          ]);
+          setStatsData(counts);
+          setTestStats(stats);
+        }
+      } catch (err) {
+        console.error("Failed to load test stats:", err);
+      }
+    }
+    loadStats();
+  }, []);
 
   const slides = [
     {
@@ -84,10 +129,10 @@ export default function TestPage() {
       icon: <Bolt size={18} />,
       accent: "#4F46E5",
       stats: [
-        { label: "已测题目", value: "12", color: "#1F2937" },
-        { label: "连续测试", value: "5 天", color: "#4F46E5" }
+        { label: "已测题目", value: `${testStats.todayCount}`, color: "#1F2937" },
+        { label: "连续测试", value: `${testStats.todayStreak} 天`, color: "#4F46E5" }
       ],
-      accuracy: 88,
+      accuracy: testStats.todayAccuracy,
       accuracyLabel: "今日正确率"
     },
     {
@@ -95,10 +140,10 @@ export default function TestPage() {
       icon: <Trophy size={18} />,
       accent: "#F97316",
       stats: [
-        { label: "累计测试", value: "156", color: "#1F2937" },
-        { label: "最高连签", value: "12 天", color: "#F97316" }
+        { label: "累计题目", value: `${testStats.totalCount}`, color: "#1F2937" },
+        { label: "最高连签", value: `${testStats.longestStreak} 天`, color: "#F97316" }
       ],
-      accuracy: 74,
+      accuracy: testStats.totalAccuracy,
       accuracyLabel: "累计正确率"
     }
   ];
@@ -185,22 +230,28 @@ export default function TestPage() {
       <motion.section className={styles.section} variants={itemVariants}>
         <h2 className={styles.sectionTitle}>复习与回顾</h2>
         <div className={styles.grid}>
-          <div className={styles.gridCard}>
+          <div 
+            className={styles.gridCard}
+            onClick={() => router.push('/test/list/wrong')}
+          >
             <div className={`${styles.iconBox} ${styles.bgRed}`}>
               <XCircle size={24} />
             </div>
             <div className={styles.itemInfo}>
               <span className={styles.itemTitle}>我的错题</span>
-              <span className={styles.itemSubtitle}>0 个</span>
+              <span className={styles.itemSubtitle}>{statsData.wrong} 个</span>
             </div>
           </div>
-          <div className={styles.gridCard}>
+          <div 
+            className={styles.gridCard}
+            onClick={() => router.push('/test/list/favorite')}
+          >
             <div className={`${styles.iconBox} ${styles.bgOrange}`}>
               <Star size={24} />
             </div>
             <div className={styles.itemInfo}>
               <span className={styles.itemTitle}>我的收藏</span>
-              <span className={styles.itemSubtitle}>0 个</span>
+              <span className={styles.itemSubtitle}>{statsData.favorite} 个</span>
             </div>
           </div>
         </div>

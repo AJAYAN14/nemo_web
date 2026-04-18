@@ -3,7 +3,8 @@ import {
   TestConfig,
   QuestionSource,
   TestContentType,
-  TestMode
+  TestMode,
+  TestRecord
 } from '@/types/test';
 
 export interface MatchableCard {
@@ -188,6 +189,10 @@ export const testService = {
             query = query.gt('lapses', 0).neq('state', -1);
             if (levels.length > 0 && !(levels as any[]).includes('ALL')) query = query.in('level', levels);
             break;
+          case 'FAVORITE':
+            query = query.eq('is_favorite', true).neq('state', -1);
+            if (levels.length > 0 && !(levels as any[]).includes('ALL')) query = query.in('level', levels);
+            break;
           case 'LEARNED':
             query = query.eq('state', 2);
             if (levels.length > 0 && !(levels as any[]).includes('ALL')) query = query.in('level', levels);
@@ -352,16 +357,20 @@ export const testService = {
       }
     }
 
+    if (!config.showHint) {
+      displayHint = '';
+    }
+
     return {
-      id: `${type}_${item.id}`,
-      itemType: type,
+      id: `q_${item.id}_${Math.random().toString(36).substring(7)}`,
+      itemType: isWord ? 'word' : 'grammar',
       content: item,
       questionType,
       prompt,
       correctAnswer,
       displayHint,
       options,
-      sortableOptions,
+      sortableOptions
     };
   },
 
@@ -417,6 +426,247 @@ export const testService = {
 
   shuffleArray<T>(array: T[]): T[] {
     return [...array].sort(() => Math.random() - 0.5);
+  },
+
+  async saveTestRecord(userId: string, record: Omit<TestRecord, 'id' | 'user_id' | 'created_at'>): Promise<void> {
+    const { error } = await supabase.from('test_records').insert({
+      user_id: userId,
+      ...record
+    });
+
+    if (error) {
+      console.error('Failed to save test record:', error);
+      throw error;
+    }
+  },
+
+  async fetchStatsCounts(userId: string): Promise<{ wrong: number, favorite: number }> {
+    const [wrongRes, favRes] = await Promise.all([
+      supabase
+        .from('user_progress')
+        .select('*', { count: 'exact' })
+        .eq('user_id', userId)
+        .gt('lapses', 0)
+        .limit(0),
+      supabase
+        .from('user_progress')
+        .select('*', { count: 'exact' })
+        .eq('user_id', userId)
+        .eq('is_favorite', true)
+        .limit(0)
+    ]);
+
+    if (wrongRes.error) {
+      console.error('Wrong stats fetch error:', {
+        message: wrongRes.error.message,
+        code: wrongRes.error.code,
+        details: wrongRes.error.details
+      });
+    }
+    if (favRes.error) {
+      console.error('Favorite stats fetch error:', {
+        message: favRes.error.message,
+        code: favRes.error.code,
+        details: favRes.error.details
+      });
+    }
+    return {
+      wrong: wrongRes.count || 0,
+      favorite: favRes.count || 0
+    };
+  },
+
+  async fetchMistakesOverview(userId: string): Promise<{ 
+    totalLearned: number, 
+    wrongWords: number, 
+    wrongGrammars: number 
+  }> {
+    const [totalRes, wordRes, grammarRes] = await Promise.all([
+      supabase.from('user_progress').select('*', { count: 'exact' }).eq('user_id', userId).limit(0),
+      supabase.from('user_progress').select('*', { count: 'exact' }).eq('user_id', userId).eq('item_type', 'word').gt('lapses', 0).limit(0),
+      supabase.from('user_progress').select('*', { count: 'exact' }).eq('user_id', userId).eq('item_type', 'grammar').gt('lapses', 0).limit(0)
+    ]);
+
+    return {
+      totalLearned: totalRes.count || 0,
+      wrongWords: wordRes.count || 0,
+      wrongGrammars: grammarRes.count || 0
+    };
+  },
+
+  async fetchFavoritesOverview(userId: string): Promise<{
+    favoriteWords: number,
+    favoriteGrammars: number
+  }> {
+    const [wordRes, grammarRes] = await Promise.all([
+      supabase.from('user_progress').select('*', { count: 'exact' }).eq('user_id', userId).eq('item_type', 'word').eq('is_favorite', true).limit(0),
+      supabase.from('user_progress').select('*', { count: 'exact' }).eq('user_id', userId).eq('item_type', 'grammar').eq('is_favorite', true).limit(0)
+    ]);
+
+    return {
+      favoriteWords: wordRes.count || 0,
+      favoriteGrammars: grammarRes.count || 0
+    };
+  },
+
+  async toggleFavorite(userId: string, itemId: string, itemType: 'word' | 'grammar', isFavorite: boolean): Promise<void> {
+    const { error } = await supabase
+      .from('user_progress')
+      .upsert({
+        user_id: userId,
+        item_id: itemId,
+        item_type: itemType,
+        is_favorite: isFavorite,
+        updated_at: new Date().toISOString()
+      }, { onConflict: 'user_id,item_id,item_type' });
+
+    if (error) {
+      console.error('Failed to toggle favorite:', error);
+      throw error;
+    }
+  },
+
+  async fetchTestHistory(userId: string): Promise<TestRecord[]> {
+    const { data, error } = await supabase
+      .from('test_records')
+      .select('*')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error('Failed to fetch test history:', error);
+      return [];
+    }
+
+
+    return data || [];
+  },
+
+  async fetchTestStreak(userId: string): Promise<number> {
+    const { data: records, error } = await supabase
+      .from('test_records')
+      .select('created_at')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false });
+
+    if (error || !records || records.length === 0) return 0;
+
+    // Use same learning day logic as statisticsService
+    const getLearningDay = (date: Date) => {
+      const resetHour = 4;
+      const localHour = date.getHours();
+      const targetDate = new Date(date);
+      if (localHour < resetHour) targetDate.setDate(targetDate.getDate() - 1);
+      const d = new Date(targetDate.getFullYear(), targetDate.getMonth(), targetDate.getDate(), 12, 0, 0);
+      return Math.floor(d.getTime() / 86400000);
+    };
+
+    const todayEpoch = getLearningDay(new Date());
+    const uniqueDays = Array.from(new Set(records.map(r => getLearningDay(new Date(r.created_at))))).sort((a, b) => b - a);
+
+    let streak = 0;
+    let expected = todayEpoch;
+
+    // If no test today, check if yesterday had a test to keep streak alive
+    if (uniqueDays[0] !== todayEpoch && uniqueDays[0] !== todayEpoch - 1) {
+      return 0;
+    }
+
+    if (uniqueDays[0] === todayEpoch - 1) {
+      expected = todayEpoch - 1;
+    }
+
+    for (const d of uniqueDays) {
+      if (d === expected) {
+        streak++;
+        expected--;
+      } else {
+        break;
+      }
+    }
+
+    return streak;
+  },
+
+  async fetchTestStats(userId: string): Promise<{
+    todayCount: number,
+    todayAccuracy: number,
+    todayStreak: number,
+    totalCount: number,
+    totalAccuracy: number,
+    longestStreak: number
+  }> {
+    const { data: records, error } = await supabase
+      .from('test_records')
+      .select('*')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false });
+
+    if (error || !records) {
+      return { todayCount: 0, todayAccuracy: 0, todayStreak: 0, totalCount: 0, totalAccuracy: 0, longestStreak: 0 };
+    }
+
+    const resetHour = 4;
+    const getLearningDay = (date: Date) => {
+      const localHour = date.getHours();
+      const targetDate = new Date(date);
+      if (localHour < resetHour) targetDate.setDate(targetDate.getDate() - 1);
+      const d = new Date(targetDate.getFullYear(), targetDate.getMonth(), targetDate.getDate(), 12, 0, 0);
+      return Math.floor(d.getTime() / 86400000);
+    };
+
+    const todayEpoch = getLearningDay(new Date());
+    const todayRecords = records.filter(r => getLearningDay(new Date(r.created_at)) === todayEpoch);
+    
+    const todayCount = todayRecords.reduce((acc, r) => acc + (r.total_questions || 0), 0);
+    const todayCorrect = todayRecords.reduce((acc, r) => acc + (r.correct_count || 0), 0);
+    const todayAccuracy = todayCount > 0 ? Math.round((todayCorrect / todayCount) * 100) : 0;
+
+    const totalCount = records.reduce((acc, r) => acc + (r.total_questions || 0), 0);
+    const totalCorrect = records.reduce((acc, r) => acc + (r.correct_count || 0), 0);
+    const totalAccuracy = totalCount > 0 ? Math.round((totalCorrect / totalCount) * 100) : 0;
+
+    // Streak logic (same as fetchTestStreak but also doing longest)
+    const uniqueDays = Array.from(new Set(records.map(r => getLearningDay(new Date(r.created_at))))).sort((a, b) => b - a);
+    
+    let currentStreak = 0;
+    if (uniqueDays.length > 0) {
+      let expected = (uniqueDays[0] === todayEpoch || uniqueDays[0] === todayEpoch - 1) ? uniqueDays[0] : -1;
+      if (expected !== -1) {
+        for (const d of uniqueDays) {
+          if (d === expected) {
+            currentStreak++;
+            expected--;
+          } else break;
+        }
+      }
+    }
+
+    // Longest streak
+    let longestStreak = 0;
+    if (uniqueDays.length > 0) {
+      const ascDays = [...uniqueDays].sort((a, b) => a - b);
+      let temp = 0;
+      let prev = -1;
+      for (const d of ascDays) {
+        if (prev === -1 || d === prev + 1) temp++;
+        else {
+          longestStreak = Math.max(longestStreak, temp);
+          temp = 1;
+        }
+        prev = d;
+      }
+      longestStreak = Math.max(longestStreak, temp);
+    }
+
+    return {
+      todayCount,
+      todayAccuracy,
+      todayStreak: currentStreak,
+      totalCount,
+      totalAccuracy,
+      longestStreak
+    };
   }
 };
 
