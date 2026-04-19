@@ -21,6 +21,9 @@ interface ReviewSnapshot {
   lastRating: FsrsRating;
   reviewLogItemType: 'word' | 'grammar';
   reviewLogItemId: number;
+  statsField: 'learned_words' | 'learned_grammars' | 'reviewed_words' | 'reviewed_grammars' | null;
+  requestId: string;
+  expectedLastReview: string | null;
   /** Epoch day at the moment of rating. Used by undo to roll back stats
    *  on the correct calendar day, even if the user undoes after midnight. */
   epochDay: number;
@@ -92,6 +95,7 @@ export function useReviewSession(
   const [isProcessing, setIsProcessing] = useState(false);
   const [canUndo, setCanUndo] = useState(false);
   const [showUndoHint, setShowUndoHint] = useState(false);
+  const [undoError, setUndoError] = useState<string | null>(null);
 
   // Undo Stack (Snapshot-based)
   const undoStack = useRef<ReviewSnapshot[]>([]);
@@ -215,6 +219,16 @@ export function useReviewSession(
     lastRatingTime.current = now;
 
     const epochDay = studyService.getLearningDay(new Date(), config.resetHour || 4);
+    const actionRow = srsService.evaluateRatingAction(currentItem, rating, config);
+    const statsField = studyService.getCompletionStudyDeltaField(
+      currentItem.type,
+      currentItem.progress.state,
+      actionRow.type
+    );
+    const requestId =
+      typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+        ? crypto.randomUUID()
+        : `${Date.now()}-${Math.random().toString(16).slice(2)}`;
 
     // 1. Capture snapshot for Undo
     const snapshot: ReviewSnapshot = {
@@ -226,6 +240,9 @@ export function useReviewSession(
       lastRating: rating,
       reviewLogItemType: currentItem.type,
       reviewLogItemId: Number(currentItem.content.id),
+      statsField,
+      requestId,
+      expectedLastReview: null,
       // Store the epoch day now so undo can roll back stats on the correct day
       // even if the user crosses midnight before pressing undo.
       epochDay
@@ -236,7 +253,6 @@ export function useReviewSession(
     setIsProcessing(true);
 
     // 2. Calculate next action
-    const actionRow = srsService.evaluateRatingAction(currentItem, rating, config);
     const isGraduated = actionRow.type === 'graduate';
     const isLeech = actionRow.type === 'leech';
     
@@ -245,7 +261,8 @@ export function useReviewSession(
     const currentIndexAtRating = currentIndex;
 
     try {
-      const updatedProgress = await studyService.processReview(userId, { item: itemToProcess, rating }, config, epochDay);
+      const updatedProgress = await studyService.processReview(userId, { item: itemToProcess, rating }, config, epochDay, requestId);
+      snapshot.expectedLastReview = updatedProgress.last_review ?? null;
 
       // 3. Commit local queue transitions only after backend success.
       let nextCompleted = completedThisSession;
@@ -291,6 +308,7 @@ export function useReviewSession(
   // --- Undo ---
   const undo = useCallback(async () => {
     if (undoStack.current.length === 0 || isProcessing) return;
+    setUndoError(null);
 
     // Peek first; consume snapshot only after backend rollback succeeds.
     const snapshot = undoStack.current[undoStack.current.length - 1];
@@ -308,8 +326,12 @@ export function useReviewSession(
         {
           itemType: snapshot.reviewLogItemType,
           itemId: snapshot.reviewLogItemId,
-          rating: snapshot.lastRating
-        }
+          rating: snapshot.lastRating,
+          requestId: snapshot.requestId,
+          expectedLastReview: snapshot.expectedLastReview
+        },
+        false,
+        snapshot.statsField
       );
 
       // 2. Consume snapshot after durable rollback success.
@@ -342,6 +364,12 @@ export function useReviewSession(
       console.log(`[ReviewSession] Undo successful for ${itemToUndo.id}`);
     } catch (e) {
       console.error('[ReviewSession] Undo sync failed:', e);
+      const message = e instanceof Error ? e.message : '撤销失败，请稍后重试';
+      if (message.includes('STALE_DATA_CONFLICT')) {
+        setUndoError('撤销失败：卡片已在其他页面更新，请刷新后重试');
+      } else {
+        setUndoError('撤销失败，请稍后重试');
+      }
     } finally {
       setIsProcessing(false);
     }
@@ -377,6 +405,8 @@ export function useReviewSession(
     waitingUntil,
     canUndo,
     showUndoHint,
+    undoError,
+    clearUndoError: useCallback(() => setUndoError(null), []),
     hideUndoHint: useCallback(() => setShowUndoHint(false), []),
     showAnswer,
     rate,

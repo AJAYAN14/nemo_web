@@ -18,6 +18,10 @@ export interface UndoSnapshot {
   epochDay: number;
   /** Optional stats bucket written by this rating; null means no stats delta. */
   statsField?: 'learned_words' | 'learned_grammars' | 'reviewed_words' | 'reviewed_grammars' | null;
+  /** Request ID used by processReview for idempotent log insertion. */
+  requestId?: string;
+  /** Post-review last_review used by undo OCC guard. */
+  expectedLastReview?: string | null;
 }
 
 const MAX_UNDO_STACK = 5;
@@ -36,6 +40,27 @@ export function useSessionUndo(userId: string, initialStack: UndoSnapshot[] = []
     });
   }, []);
 
+  const updateLatestRateSnapshot = useCallback((patch: {
+    requestId: string;
+    expectedLastReview: string | null;
+  }) => {
+    setUndoStack((prev) => {
+      if (prev.length === 0) return prev;
+
+      const last = prev[prev.length - 1];
+      if (last.actionType !== 'rate' || last.requestId !== patch.requestId) {
+        return prev;
+      }
+
+      const updated: UndoSnapshot = {
+        ...last,
+        expectedLastReview: patch.expectedLastReview
+      };
+
+      return [...prev.slice(0, -1), updated];
+    });
+  }, []);
+
   const performUndo = useCallback(async (fallbackEpochDay: number) => {
     if (undoStack.length === 0) return null;
 
@@ -47,7 +72,9 @@ export function useSessionUndo(userId: string, initialStack: UndoSnapshot[] = []
       ? {
         itemType: lastSnapshot.reviewLogItemType,
         itemId: lastSnapshot.reviewLogItemId,
-        rating: lastSnapshot.lastRating
+        rating: lastSnapshot.lastRating,
+        requestId: lastSnapshot.requestId,
+        expectedLastReview: lastSnapshot.expectedLastReview ?? null
       }
       : undefined;
     
@@ -81,6 +108,7 @@ export function useSessionUndo(userId: string, initialStack: UndoSnapshot[] = []
     canUndo,
     undoStack,
     pushSnapshot,
+    updateLatestRateSnapshot,
     performUndo,
     clearUndo
   };

@@ -40,6 +40,8 @@ function LearnSessionUI({ todayStats }: { todayStats: LearningStats | undefined 
     isShowAnswerDelayEnabled,
     showAnswerDelayDuration,
     showUndoHint,
+    undoError,
+    clearUndoError,
     hideUndoHint,
     ratingIntervals,
     initialTotalCount,
@@ -145,6 +147,7 @@ function LearnSessionUI({ todayStats }: { todayStats: LearningStats | undefined 
         actionText="撤销"
         icon={Undo2}
         type={NemoSnackbarType.INFO}
+        topOffset={92}
         onDismiss={hideUndoHint}
         onClick={undo}
       />
@@ -153,7 +156,16 @@ function LearnSessionUI({ todayStats }: { todayStats: LearningStats | undefined 
         visible={!!syncConflictItem}
         message={`"${syncConflictItem}" 已在其他页面更新，已自动同步跳过`}
         type={NemoSnackbarType.WARNING}
+        topOffset={92}
         onDismiss={() => setSyncConflictItem(null)}
+      />
+
+      <NemoSnackbar
+        visible={!!undoError}
+        message={undoError || '撤销失败'}
+        type={NemoSnackbarType.ERROR}
+        topOffset={142}
+        onDismiss={clearUndoError}
       />
 
       <main className={styles.sessionContent}>

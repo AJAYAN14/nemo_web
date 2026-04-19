@@ -231,8 +231,7 @@ describe('studyService.buryItem', () => {
 
     expect(rpcMock).toHaveBeenCalledWith('fn_undo_review_atomic_v2', expect.objectContaining({
       p_progress_id: 'progress-undo-state-3',
-      p_field: 'reviewed_words',
-      p_delta: -1
+      p_field: 'reviewed_words'
     }));
   });
 });

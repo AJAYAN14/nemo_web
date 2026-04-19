@@ -20,6 +20,7 @@ interface NemoSnackbarProps {
   autoDismissMs?: number | null;
   onDismiss?: () => void;
   onClick?: () => void;
+  topOffset?: number;
 }
 
 export function NemoSnackbar({
@@ -30,7 +31,8 @@ export function NemoSnackbar({
   icon: Icon,
   autoDismissMs = 5000,
   onDismiss,
-  onClick
+  onClick,
+  topOffset = 16
 }: NemoSnackbarProps) {
   
   useEffect(() => {
@@ -45,14 +47,14 @@ export function NemoSnackbar({
   return (
     <AnimatePresence>
       {visible && (
-        <div className={styles.snackbarContainer}>
+        <div className={styles.snackbarContainer} style={{ top: `${topOffset}px` }}>
           <motion.div
             initial={{ opacity: 0, y: -40 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -40 }}
             transition={{ type: "spring", stiffness: 400, damping: 30 }}
-            className={clsx(styles.snackbarContent, styles[type])}
-            onClick={onClick}
+            className={clsx(styles.snackbarContent, styles[type], onClick && styles.clickable)}
+            onClick={() => onClick?.()}
           >
             <div className={styles.leftSection}>
               {Icon && <Icon size={20} />}
@@ -60,7 +62,8 @@ export function NemoSnackbar({
             </div>
             
             {actionText && (
-              <span 
+              <button
+                type="button"
                 className={styles.actionText} 
                 onClick={(e) => {
                   e.stopPropagation();
@@ -68,7 +71,7 @@ export function NemoSnackbar({
                 }}
               >
                 {actionText}
-              </span>
+              </button>
             )}
           </motion.div>
         </div>

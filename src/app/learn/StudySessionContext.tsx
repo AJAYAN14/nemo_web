@@ -44,7 +44,9 @@ interface StudySessionContextType {
   cycleDelayDuration: () => void;
   hideUndoHint: () => void;
   showUndoHint: boolean;
+  undoError: string | null;
   setSyncConflictItem: (name: string | null) => void;
+  clearUndoError: () => void;
 }
 
 const StudySessionContext = createContext<StudySessionContextType | null>(null);
@@ -103,7 +105,7 @@ export function StudySessionProvider({ userId, initialItems, config, mode, today
 
   // 2. Specialized Hooks
   const { state, dispatch } = useSessionState(initialPool, initialIndex, initialCompleted, initialWaiting);
-  const { canUndo, pushSnapshot, performUndo, undoStack } = useSessionUndo(userId, initialUndoStack);
+  const { canUndo, pushSnapshot, updateLatestRateSnapshot, performUndo, undoStack } = useSessionUndo(userId, initialUndoStack);
   const { performConsistencyCheck } = useSessionSync();
 
   // 3. UI Settings State
@@ -111,6 +113,7 @@ export function StudySessionProvider({ userId, initialItems, config, mode, today
   const [isShowAnswerDelayEnabled, setIsShowAnswerDelayEnabled] = useState(!!config.isShowAnswerDelayEnabled);
   const [showAnswerDelayDuration, setShowAnswerDelayDuration] = useState(config.showAnswerDelayDuration || 5);
   const [showUndoHint, setShowUndoHint] = useState(false);
+  const [undoError, setUndoError] = useState<string | null>(null);
   const [manualResumedAt, setManualResumedAt] = useState(0);
   
   // Stable denominator for progress bar
@@ -190,6 +193,10 @@ export function StudySessionProvider({ userId, initialItems, config, mode, today
       currentItem.progress.state,
       actionRow.type
     );
+    const requestId =
+      typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+        ? crypto.randomUUID()
+        : `${Date.now()}-${Math.random().toString(16).slice(2)}`;
 
     // Snapshot
     pushSnapshot({
@@ -206,13 +213,18 @@ export function StudySessionProvider({ userId, initialItems, config, mode, today
       // Capture the locked learning day so undo rolls back stats on the correct
       // day even if the user crosses midnight before pressing undo.
       epochDay: lockedDay,
-      statsField
+      statsField,
+      requestId
     });
 
     dispatch({ type: 'SET_STATUS', status: LearningStatus.Processing });
 
     try {
-      const updatedProgress = await studyService.processReview(userId, { item: currentItem, rating }, config, lockedDay);
+      const updatedProgress = await studyService.processReview(userId, { item: currentItem, rating }, config, lockedDay, requestId);
+      updateLatestRateSnapshot({
+        requestId,
+        expectedLastReview: updatedProgress.last_review ?? null
+      });
 
       const isGraduated = actionRow.type === 'graduate' || actionRow.type === 'leech';
       const nextPool = [...state.wordList];
@@ -270,10 +282,11 @@ export function StudySessionProvider({ userId, initialItems, config, mode, today
          dispatch({ type: 'SET_STATUS', status: LearningStatus.Learning });
       }
     }
-  }, [currentItem, state, config, userId, lockedDay, pushSnapshot, selectNext, persist, dispatch, queryClient]);
+  }, [currentItem, state, config, userId, lockedDay, pushSnapshot, updateLatestRateSnapshot, selectNext, persist, dispatch, queryClient]);
 
   const undo = useCallback(async () => {
     if (!canUndo || state.status === LearningStatus.Processing) return;
+    setUndoError(null);
     dispatch({ type: 'SET_STATUS', status: LearningStatus.Processing });
     try {
       const snapshot = await performUndo(lockedDay);
@@ -287,7 +300,13 @@ export function StudySessionProvider({ userId, initialItems, config, mode, today
         });
         persist(snapshot.wordList, snapshot.currentIndex, snapshot.completedThisSession, snapshot.waitingUntil);
       }
-    } catch {
+    } catch (e: unknown) {
+      const message = e instanceof Error ? e.message : '撤销失败，请重试';
+      if (message.includes('STALE_DATA_CONFLICT')) {
+        setUndoError('撤销失败：卡片已在其他页面更新，请刷新后重试');
+      } else {
+        setUndoError('撤销失败，请稍后重试');
+      }
       dispatch({ type: 'SET_STATUS', status: state.waitingUntil ? LearningStatus.Waiting : LearningStatus.Learning });
     }
   }, [canUndo, state.status, state.waitingUntil, performUndo, lockedDay, persist, dispatch]);
@@ -379,7 +398,9 @@ export function StudySessionProvider({ userId, initialItems, config, mode, today
     },
     hideUndoHint: () => setShowUndoHint(false),
     showUndoHint,
-    setSyncConflictItem: (name: string | null) => dispatch({ type: 'SET_SYNC_CONFLICT', itemName: name })
+    undoError,
+    setSyncConflictItem: (name: string | null) => dispatch({ type: 'SET_SYNC_CONFLICT', itemName: name }),
+    clearUndoError: () => setUndoError(null)
   };
 
   return <StudySessionContext.Provider value={value}>{children}</StudySessionContext.Provider>;

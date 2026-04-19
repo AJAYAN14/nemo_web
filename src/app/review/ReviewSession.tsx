@@ -45,6 +45,8 @@ export function ReviewSession({ userId, initialItems, config }: ReviewSessionPro
     canUndo,
     undo,
     showUndoHint,
+    undoError,
+    clearUndoError,
     hideUndoHint,
   } = useReviewSession(userId, initialItems, config);
 
@@ -136,8 +138,17 @@ export function ReviewSession({ userId, initialItems, config }: ReviewSessionPro
         actionText="撤销"
         icon={Undo2}
         type={NemoSnackbarType.INFO}
+        topOffset={84}
         onDismiss={hideUndoHint}
         onClick={undo}
+      />
+
+      <NemoSnackbar
+        visible={!!undoError}
+        message={undoError || '撤销失败'}
+        type={NemoSnackbarType.ERROR}
+        topOffset={134}
+        onDismiss={clearUndoError}
       />
 
       {/* Progress bar */}

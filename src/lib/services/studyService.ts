@@ -16,6 +16,8 @@ interface UndoReviewMeta {
   itemType: ItemType;
   itemId: number;
   rating: FsrsRating;
+  requestId?: string;
+  expectedLastReview?: string | null;
 }
 
 type StudyDeltaField = 'learned_words' | 'learned_grammars' | 'reviewed_words' | 'reviewed_grammars';
@@ -402,7 +404,8 @@ export const studyService = {
     userId: string,
     result: ReviewResult,
     config: StudyConfig,
-    epochDay: number
+    epochDay: number,
+    requestIdOverride?: string
   ): Promise<UserProgress> {
     const { item, rating } = result;
     const progress = item.progress;
@@ -425,10 +428,11 @@ export const studyService = {
 
     const studyField = getCompletionStudyDeltaField(item.type, progress.state, action.type);
 
-    const requestId =
+    const requestId = requestIdOverride ?? (
       typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
         ? crypto.randomUUID()
-        : `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+        : `${Date.now()}-${Math.random().toString(16).slice(2)}`
+    );
 
     const rpcParams = {
       p_user_id: userId,
@@ -488,7 +492,7 @@ export const studyService = {
       : (statsFieldOverride !== undefined ? statsFieldOverride : null);
 
     // Preferred path: atomic DB rollback (progress + stats + review_logs in one transaction).
-    const atomicWithLogsResult = await supabase.rpc('fn_undo_review_atomic_v2', {
+    let atomicWithLogsResult = await supabase.rpc('fn_undo_review_atomic_v2', {
       p_user_id: userId,
       p_progress_id: previousProgress.id,
       p_epoch_day: epochDay,
@@ -507,8 +511,38 @@ export const studyService = {
       p_item_type: undoMeta?.itemType ?? itemType,
       p_item_id: undoMeta?.itemId,
       p_rating: undoMeta?.rating,
-      p_delta: field ? -1 : 0
+      p_request_id: undoMeta?.requestId,
+      p_expected_last_review: undoMeta?.expectedLastReview ?? null
     });
+
+    if (atomicWithLogsResult.error && undoMeta?.requestId) {
+      const message = String(atomicWithLogsResult.error.message || '');
+      if (message.includes('UNDO_LOG_NOT_FOUND')) {
+        // Fallback for legacy/mismatched log rows: keep OCC, but drop strict request_id match.
+        atomicWithLogsResult = await supabase.rpc('fn_undo_review_atomic_v2', {
+          p_user_id: userId,
+          p_progress_id: previousProgress.id,
+          p_epoch_day: epochDay,
+          p_field: field,
+          p_stability: previousProgress.stability,
+          p_difficulty: previousProgress.difficulty,
+          p_reps: previousProgress.reps,
+          p_lapses: previousProgress.lapses,
+          p_state: previousProgress.state,
+          p_learning_step: previousProgress.learning_step,
+          p_last_review: previousProgress.last_review,
+          p_next_review: previousProgress.next_review,
+          p_elapsed_days: previousProgress.elapsed_days,
+          p_scheduled_days: previousProgress.scheduled_days,
+          p_buried_until: previousProgress.buried_until,
+          p_item_type: undoMeta?.itemType ?? itemType,
+          p_item_id: undoMeta?.itemId,
+          p_rating: undoMeta?.rating,
+          p_request_id: null,
+          p_expected_last_review: undoMeta?.expectedLastReview ?? null
+        });
+      }
+    }
 
     if (atomicWithLogsResult.error) {
       throw atomicWithLogsResult.error;
