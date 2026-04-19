@@ -9,6 +9,12 @@ const rpcMock = vi.fn();
 
 vi.mock('@/lib/supabase', () => ({
   supabase: {
+    auth: {
+      getSession: vi.fn().mockResolvedValue({
+        data: { session: { user: { id: 'user-1' } } },
+        error: null
+      })
+    },
     from: fromMock,
     rpc: rpcMock
   }

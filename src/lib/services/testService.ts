@@ -444,16 +444,14 @@ export const testService = {
     const [wrongRes, favRes] = await Promise.all([
       supabase
         .from('user_progress')
-        .select('*', { count: 'exact' })
+        .select('*', { count: 'exact', head: true })
         .eq('user_id', userId)
-        .gt('lapses', 0)
-        .limit(0),
+        .gt('lapses', 0),
       supabase
         .from('user_progress')
-        .select('*', { count: 'exact' })
+        .select('*', { count: 'exact', head: true })
         .eq('user_id', userId)
         .eq('is_favorite', true)
-        .limit(0)
     ]);
 
     if (wrongRes.error) {
@@ -482,9 +480,9 @@ export const testService = {
     wrongGrammars: number 
   }> {
     const [totalRes, wordRes, grammarRes] = await Promise.all([
-      supabase.from('user_progress').select('*', { count: 'exact' }).eq('user_id', userId).limit(0),
-      supabase.from('user_progress').select('*', { count: 'exact' }).eq('user_id', userId).eq('item_type', 'word').gt('lapses', 0).limit(0),
-      supabase.from('user_progress').select('*', { count: 'exact' }).eq('user_id', userId).eq('item_type', 'grammar').gt('lapses', 0).limit(0)
+      supabase.from('user_progress').select('*', { count: 'exact', head: true }).eq('user_id', userId),
+      supabase.from('user_progress').select('*', { count: 'exact', head: true }).eq('user_id', userId).eq('item_type', 'word').gt('lapses', 0),
+      supabase.from('user_progress').select('*', { count: 'exact', head: true }).eq('user_id', userId).eq('item_type', 'grammar').gt('lapses', 0)
     ]);
 
     return {
@@ -499,8 +497,8 @@ export const testService = {
     favoriteGrammars: number
   }> {
     const [wordRes, grammarRes] = await Promise.all([
-      supabase.from('user_progress').select('*', { count: 'exact' }).eq('user_id', userId).eq('item_type', 'word').eq('is_favorite', true).limit(0),
-      supabase.from('user_progress').select('*', { count: 'exact' }).eq('user_id', userId).eq('item_type', 'grammar').eq('is_favorite', true).limit(0)
+      supabase.from('user_progress').select('*', { count: 'exact', head: true }).eq('user_id', userId).eq('item_type', 'word').eq('is_favorite', true),
+      supabase.from('user_progress').select('*', { count: 'exact', head: true }).eq('user_id', userId).eq('item_type', 'grammar').eq('is_favorite', true)
     ]);
 
     return {
@@ -509,12 +507,17 @@ export const testService = {
     };
   },
 
-  async toggleFavorite(userId: string, itemId: string, itemType: 'word' | 'grammar', isFavorite: boolean): Promise<void> {
+  async toggleFavorite(userId: string, itemId: string | number, itemType: 'word' | 'grammar', isFavorite: boolean): Promise<void> {
+    const normalizedItemId = Number(itemId);
+    if (!Number.isFinite(normalizedItemId)) {
+      throw new Error('Invalid itemId for toggleFavorite');
+    }
+
     const { error } = await supabase
       .from('user_progress')
       .upsert({
         user_id: userId,
-        item_id: itemId,
+        item_id: normalizedItemId,
         item_type: itemType,
         is_favorite: isFavorite,
         updated_at: new Date().toISOString()

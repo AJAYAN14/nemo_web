@@ -32,8 +32,8 @@ export const statisticsService = {
   },
 
   /**
-   * Fetch today's aggregated stats using the atomic overview RPC.
-   * Web Excellence: Atomic, session-aware, and level-bound.
+   * Fetch today's aggregated stats using a read-only overview RPC.
+   * Seeding is handled by dedicated flows (home/learn) to avoid write-on-read.
    */
   async getTodayStats(userId: string, resetHour: number = 4): Promise<LearningStats> {
     await this.ensureSession();
@@ -45,16 +45,13 @@ export const statisticsService = {
 
     let data, error;
     try {
-      const res = await supabase.rpc('fn_prepare_study_overview', {
+      const res = await supabase.rpc('fn_get_study_overview', {
         p_user_id: userId,
         p_word_level: config.wordLevel || 'N5',
         p_grammar_level: config.grammarLevel || 'N5',
-        p_word_limit: config.dailyGoal || 20,
-        p_grammar_limit: config.grammarDailyGoal || 5,
-        p_epoch_day: epochDay,
-        p_reset_hour: resetHour,
-        p_is_random: config.isRandom ?? true
+        p_epoch_day: epochDay
       });
+
       data = res.data;
       error = res.error;
     } catch (e) {

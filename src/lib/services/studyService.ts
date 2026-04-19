@@ -184,7 +184,11 @@ export const studyService = {
       dailyGoal, 
       grammarDailyGoal, 
       resetHour, 
-      itemType === 'word' ? config.wordLevel : config.grammarLevel
+      {
+        wordLevel: config.wordLevel,
+        grammarLevel: config.grammarLevel
+      },
+      config.isRandom ?? true
     );
 
     // 3. Fetch due items
@@ -199,7 +203,7 @@ export const studyService = {
     dailyGoal: number,
     grammarDailyGoal: number,
     resetHour: number,
-    level?: string,
+    level?: string | { wordLevel?: string; grammarLevel?: string },
     isRandom = true,
     providedEpochDay?: number
   ): Promise<void> {
@@ -211,6 +215,8 @@ export const studyService = {
       await this.ensureSession();
 
       const epochDay = providedEpochDay ?? this.getLearningDay(new Date(), resetHour);
+      const resolvedWordLevel = typeof level === 'string' ? level : (level?.wordLevel || 'ALL');
+      const resolvedGrammarLevel = typeof level === 'string' ? level : (level?.grammarLevel || 'ALL');
       const promises: PromiseLike<{ error: unknown | null }>[] = [];
 
       if (dailyGoal > 0) {
@@ -219,7 +225,7 @@ export const studyService = {
             p_user_id: userId,
             p_item_type: 'word',
             p_limit: dailyGoal,
-            p_level: level || 'ALL',
+            p_level: resolvedWordLevel,
             p_epoch_day: epochDay,
             p_is_random: isRandom
           })
@@ -232,7 +238,7 @@ export const studyService = {
             p_user_id: userId,
             p_item_type: 'grammar',
             p_limit: grammarDailyGoal,
-            p_level: level || 'ALL',
+            p_level: resolvedGrammarLevel,
             p_epoch_day: epochDay,
             p_is_random: isRandom
           })

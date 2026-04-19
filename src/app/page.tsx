@@ -58,7 +58,7 @@ export default function Home() {
     enabled: !!user,
   });
 
-  // Fetch stats. In Web Excellence, seeding and stats are atomic.
+  // Home flow: seed queue explicitly, then read stats.
   const { data: stats, isLoading: statsLoading, error: statsError } = useQuery({
     queryKey: ["today-stats", user?.id, config?.resetHour, config?.wordLevel, config?.grammarLevel],
     queryFn: async () => {
@@ -67,12 +67,24 @@ export default function Home() {
       const epochDay = statisticsService.getLearningDay(new Date(), config.resetHour || 4);
       console.log("[Dashboard] Syncing overview for Epoch Day:", epochDay);
 
-      // Web Excellence: Atomic fetch-and-seed
+      await studyService.seedDailyNewItems(
+        user.id,
+        config.dailyGoal || 20,
+        config.grammarDailyGoal || 5,
+        config.resetHour || 4,
+        {
+          wordLevel: config.wordLevel || 'ALL',
+          grammarLevel: config.grammarLevel || 'ALL'
+        },
+        config.isRandom ?? true,
+        epochDay
+      );
+
       return statisticsService.getTodayStats(user.id, config.resetHour || 4);
     },
     enabled: !!user && !!config,
     staleTime: 60 * 1000,
-    refetchInterval: 5000, // Force update every 5 seconds until tasks appear
+    refetchOnWindowFocus: false,
   });
 
   const { data: memoryPanorama, isLoading: panoramaLoading, error: panoramaError } = useQuery({
