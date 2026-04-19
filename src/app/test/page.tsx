@@ -40,24 +40,24 @@ const itemVariants = {
 const CAROUSEL_AUTO_SCROLL_MS = 5000;
 
 function CircularProgress({ percent, color, label }: { percent: number; color: string; label: string }) {
-  const radius = 36;
+  const radius = 42; // Increased for 100x100 container
   const circumference = 2 * Math.PI * radius;
   const offset = circumference - (percent / 100) * circumference;
 
   return (
     <div className={styles.ringWrapper}>
       <div className={styles.progressRing}>
-        <svg width="84" height="84" viewBox="0 0 84 84">
+        <svg width="100" height="100" viewBox="0 0 100 100">
           <circle
             className={styles.ringBg}
-            cx="42"
-            cy="42"
+            cx="50"
+            cy="50"
             r={radius}
           />
           <motion.circle
             className={styles.ringIndicator}
-            cx="42"
-            cy="42"
+            cx="50"
+            cy="50"
             r={radius}
             stroke={color}
             strokeDasharray={circumference}

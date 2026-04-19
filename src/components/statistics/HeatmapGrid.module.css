@@ -15,7 +15,8 @@
   display: grid;
   grid-template-rows: auto;
   margin-bottom: 0.5rem;
-  padding-left: 2rem; /* Matches weekday labels width */
+  padding-left: 2rem;
+  /* Matches weekday labels width */
 }
 
 .monthLabel {
@@ -67,11 +68,25 @@
   opacity: 0.8;
 }
 
-.level0 { background-color: #F3F4F6; }
-.level1 { background-color: #C7D2FE; }
-.level2 { background-color: #818CF8; }
-.level3 { background-color: #4F46E5; }
-.level4 { background-color: #3730A3; }
+.level0 {
+  background-color: #F3F4F6;
+}
+
+.level1 {
+  background-color: #C7D2FE;
+}
+
+.level2 {
+  background-color: #818CF8;
+}
+
+.level3 {
+  background-color: #4F46E5;
+}
+
+.level4 {
+  background-color: #3730A3;
+}
 
 .legend {
   display: flex;
@@ -109,8 +124,13 @@
 }
 
 @keyframes loading {
-  0% { background-position: 200% 0; }
-  100% { background-position: -200% 0; }
+  0% {
+    background-position: 200% 0;
+  }
+
+  100% {
+    background-position: -200% 0;
+  }
 }
 
 /* Custom Scrollbar for better aesthetic */

@@ -25,6 +25,7 @@ import { supabase } from "@/lib/supabase";
 import { statisticsService } from "@/lib/services/statisticsService";
 import { settingsService } from "@/lib/services/settingsService";
 import { SakuraLoader } from "@/components/common/SakuraLoader";
+import { MemoryPanorama } from "@/components/statistics/MemoryPanorama";
 import styles from "./progress.module.css";
 
 interface DashboardStats {
@@ -69,8 +70,8 @@ export default function ProgressPage() {
   useEffect(() => {
     const hour = new Date().getHours();
     const timeGreeting = hour < 5 ? "夜深了" :
-                         hour < 12 ? "早上好" :
-                         hour < 18 ? "下午好" : "晚上好";
+      hour < 12 ? "早上好" :
+        hour < 18 ? "下午好" : "晚上好";
     setGreeting(timeGreeting);
 
     const formatter = new Intl.DateTimeFormat('zh-CN', { weekday: 'long', month: 'long', day: 'numeric' });
@@ -89,7 +90,11 @@ export default function ProgressPage() {
     queryKey: ["progress-summary", user?.id],
     queryFn: async () => {
       const config = await settingsService.getStudyConfig();
-      return await statisticsService.getDashboardSummary(user!.id, config.resetHour || 4);
+      const [summary, panorama] = await Promise.all([
+        statisticsService.getDashboardSummary(user!.id, config.resetHour || 4),
+        statisticsService.getMemoryPanorama(user!.id)
+      ]);
+      return { ...summary, panorama };
     },
     enabled: !!user,
   });
@@ -118,91 +123,91 @@ export default function ProgressPage() {
           </div>
         </header>
 
-      <section className={styles.carouselContainer}>
-        <LearningSummaryCarousel data={data} />
-      </section>
+        <section className={styles.carouselContainer}>
+          <LearningSummaryCarousel data={data} />
+        </section>
 
-      <section className={styles.section}>
-        <h2 className={styles.sectionTitle}>复习与训练</h2>
-        <div className={styles.listCard}>
-          <ProgressItem
-            icon={<RotateCcw />}
-            color="#4F46E5"
-            title="今日到期复习"
-            subtitle="核心复习任务"
-            onClick={() => router.push("/review")}
-          />
-          <ProgressItem
-            icon={<Activity />}
-            color="#10B981"
-            title="专项训练"
-            subtitle="按主题强化练习"
-            onClick={() => router.push("/library/specialized?source=practice")}
-          />
-        </div>
-      </section>
+        <section className={styles.section}>
+          <h2 className={styles.sectionTitle}>复习与训练</h2>
+          <div className={styles.listCard}>
+            <ProgressItem
+              icon={<RotateCcw />}
+              color="#4F46E5"
+              title="今日到期复习"
+              subtitle="核心复习任务"
+              onClick={() => router.push("/review")}
+            />
+            <ProgressItem
+              icon={<Activity />}
+              color="#10B981"
+              title="专项训练"
+              subtitle="按主题强化练习"
+              onClick={() => router.push("/library/specialized?source=practice")}
+            />
+          </div>
+        </section>
 
-      <section className={styles.section}>
-        <h2 className={styles.sectionTitle}>数据与资料</h2>
-        <div className={styles.listCard}>
-          <ProgressItem
-            icon={<PieChart />}
-            color="#6366f1"
-            title="学习日历"
-            subtitle="学习计划与每日记录"
-            onClick={() => router.push("/progress/calendar")}
-          />
-          <ProgressItem
-            icon={<LineChart />}
-            color="#f43f5e"
-            title="今日统计"
-            subtitle="查看今日学习明细"
-            onClick={() => router.push("/statistics/today")}
-          />
-          <ProgressItem
-            icon={<BarChart3 />}
-            color="#8b5cf6"
-            title="历史统计"
-            subtitle="查看历史学习数据"
-            onClick={() => router.push("/statistics/history")}
-          />
-          <ProgressItem
-            icon={<LayoutList />}
-            color="#10B981"
-            title="单词列表"
-            subtitle="词汇库管理"
-            onClick={() => router.push("/library?tab=words")}
-          />
-          <ProgressItem
-            icon={<Database />}
-            color="#0ea5e9"
-            title="专项词汇"
-            subtitle="按分类查看词汇"
-            onClick={() => router.push("/library/specialized?source=vocabulary")}
-          />
-          <ProgressItem
-            icon={<Book />}
-            color="#6366f1"
-            title="语法列表"
-            subtitle="语法知识库"
-            onClick={() => router.push("/library?tab=grammars")}
-          />
-          <ProgressItem
-            icon={<Wand2 />}
-            color="#f59e0b"
-            title="复学清单"
-            subtitle="难点项召回与复习"
-            onClick={() => router.push("/review/leech")}
-          />
-          <ProgressItem
-            icon={<Grid3X3 />}
-            color="#f43f5e"
-            title="五十音图"
-            subtitle="基础假名发音参考"
-            onClick={() => router.push("/library/kana")}
-          />
-        </div>
-      </section>
+        <section className={styles.section}>
+          <h2 className={styles.sectionTitle}>数据与资料</h2>
+          <div className={styles.listCard}>
+            <ProgressItem
+              icon={<PieChart />}
+              color="#6366f1"
+              title="学习日历"
+              subtitle="学习计划与每日记录"
+              onClick={() => router.push("/progress/calendar")}
+            />
+            <ProgressItem
+              icon={<LineChart />}
+              color="#f43f5e"
+              title="今日统计"
+              subtitle="查看今日学习明细"
+              onClick={() => router.push("/statistics/today")}
+            />
+            <ProgressItem
+              icon={<BarChart3 />}
+              color="#8b5cf6"
+              title="历史统计"
+              subtitle="查看历史学习数据"
+              onClick={() => router.push("/statistics/history")}
+            />
+            <ProgressItem
+              icon={<LayoutList />}
+              color="#10B981"
+              title="单词列表"
+              subtitle="词汇库管理"
+              onClick={() => router.push("/library?tab=words")}
+            />
+            <ProgressItem
+              icon={<Database />}
+              color="#0ea5e9"
+              title="专项词汇"
+              subtitle="按分类查看词汇"
+              onClick={() => router.push("/library/specialized?source=vocabulary")}
+            />
+            <ProgressItem
+              icon={<Book />}
+              color="#6366f1"
+              title="语法列表"
+              subtitle="语法知识库"
+              onClick={() => router.push("/library?tab=grammars")}
+            />
+            <ProgressItem
+              icon={<Wand2 />}
+              color="#f59e0b"
+              title="复学清单"
+              subtitle="难点项召回与复习"
+              onClick={() => router.push("/review/leech")}
+            />
+            <ProgressItem
+              icon={<Grid3X3 />}
+              color="#f43f5e"
+              title="五十音图"
+              subtitle="基础假名发音参考"
+              onClick={() => router.push("/library/kana")}
+            />
+          </div>
+        </section>
       </div>
     </main>
   );

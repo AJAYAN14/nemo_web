@@ -4,7 +4,6 @@
   height: 100dvh;
   max-width: 800px;
   margin: 0 auto;
-  background-color: var(--bg-primary, #F9FAFB);
   overflow: hidden;
   /* Prevent body scroll, use internal scroll */
 }
@@ -37,11 +36,13 @@
 }
 
 .footer {
-  flex-shrink: 0;
+  position: fixed;
+  bottom: -20px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 100%;
+  max-width: 800px;
   padding: 12px;
-  background-color: var(--bg-primary, #F9FAFB);
-  border-top: 1px solid rgba(0, 0, 0, 0.05);
-  /* Subtle separation */
   z-index: 10;
 }
 

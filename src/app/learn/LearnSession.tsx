@@ -2,7 +2,7 @@
 
 import React, { useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
-import { StudyItem, LearningStatus, StudyConfig, ItemType, LearningMode } from "@/types/study";
+import { StudyItem, LearningStatus, StudyConfig, ItemType, LearningMode, LearningStats } from "@/types/study";
 import { StudySessionProvider, useStudySession } from "./StudySessionContext";
 import { LearnHeader } from "@/components/learn/LearnHeader";
 import { SRSCard } from "@/components/learn/SRSCard";
@@ -20,18 +20,13 @@ interface LearnSessionProps {
   initialItems: StudyItem[];
   config: StudyConfig;
   mode?: ItemType;
-  todayStats?: {
-    todayLearnedWords?: number;
-    todayReviewedWords?: number;
-    todayLearnedGrammars?: number;
-    todayReviewedGrammars?: number;
-  };
+  todayStats?: LearningStats;
 }
 
 /**
  * Inner UI component that consumes the StudySessionContext.
  */
-function LearnSessionUI({ todayStats }: { todayStats: LearnSessionProps['todayStats'] }) {
+function LearnSessionUI({ todayStats }: { todayStats: LearningStats | undefined }) {
   const router = useRouter();
   const {
     mode,
@@ -138,6 +133,7 @@ function LearnSessionUI({ todayStats }: { todayStats: LearnSessionProps['todaySt
       <LearnHeader
         onShowRatingGuide={() => setIsRatingGuideOpen(true)}
         progressPercent={progressPercent}
+        stats={todayStats}
       />
 
       <NemoSnackbar

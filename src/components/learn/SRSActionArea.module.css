@@ -3,6 +3,7 @@
   padding: 12px 0;
   display: flex;
   justify-content: center;
+  background-color: transparent;
 }
 
 @media (min-width: 640px) {
@@ -86,12 +87,14 @@
   gap: 4px;
   cursor: pointer;
   transition: all 0.2s;
-  background-color: var(--bg-secondary);
+  background-color: transparent;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
 }
 
 .ratingBtn:hover {
   filter: brightness(0.95);
-  transform: translateY(-2px);
+  transform: translateY(-4px);
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.12);
 }
 
 .ratingLabel {

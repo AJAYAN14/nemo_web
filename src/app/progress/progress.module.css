@@ -2,7 +2,7 @@
 
 .mainContainer {
   min-height: 100vh;
-  background-color: var(--background); /* Now #F4F5F7 */
+  background-color: var(--background);
   color: #0f172a;
   padding: 1rem;
   font-family: var(--font-body);
@@ -10,11 +10,11 @@
 }
 
 .contentWrapper {
-  max-width: 80rem; /* Consistent with Homepage 1280px */
+  max-width: 80rem;
   margin: 0 auto;
 }
 
-/* Header - Matches Homepage Style */
+/* Header */
 .header {
   display: flex;
   flex-direction: column;
@@ -61,7 +61,7 @@
   padding-left: 0.5rem;
 }
 
-/* Carousel / Bento Grid */
+/* Carousel */
 .carouselContainer {
   margin-bottom: 3rem;
 }
@@ -83,14 +83,14 @@
 
 .bentoGrid {
   display: flex;
-  flex-direction: column; /* Stack vertically on mobile */
+  flex-direction: column;
   width: 100%;
   gap: 1rem;
 }
 
 @media (min-width: 1024px) {
   .bentoGrid {
-    flex-direction: row; /* Side-by-side on desktop */
+    flex-direction: row;
     height: 340px;
     gap: 1.5rem;
   }
@@ -99,7 +99,7 @@
 .mainTile {
   flex: 1.8;
   height: 240px;
-  border-radius: 2.5rem; /* Standard Primary Radius (40px) */
+  border-radius: 2.5rem;
   padding: 2.5rem;
   display: flex;
   flex-direction: column;
@@ -133,20 +133,20 @@
 .sideTiles {
   flex: 1;
   display: grid;
-  grid-template-columns: repeat(2, 1fr); /* Two columns on mobile */
+  grid-template-columns: repeat(2, 1fr);
   gap: 1rem;
 }
 
 @media (min-width: 1024px) {
   .sideTiles {
     display: flex;
-    flex-direction: column; /* Stacked on desktop within the flex row */
+    flex-direction: column;
   }
 }
 
 .subTile {
   flex: 1;
-  background: rgba(255, 255, 255, 0.5); /* Glassmorphic transparency */
+  background: rgba(255, 255, 255, 0.5);
   backdrop-filter: blur(16px);
   border: 1px solid rgba(255, 255, 255, 0.4);
   border-radius: 1.5rem;
@@ -215,7 +215,7 @@
   background: #6366f1;
 }
 
-/* Glassmorphic Item Cards */
+/* Item Cards */
 .listCard {
   background: transparent;
   padding: 0;
@@ -267,12 +267,12 @@
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  box-shadow: inset 0 2px 4px rgba(0,0,0,0.05);
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.05);
 }
 
 .itemText {
   flex: 1;
-  min-width: 0; /* Prevents text overflow */
+  min-width: 0;
 }
 
 .itemTitle {
@@ -300,6 +300,56 @@
   margin-left: 0.5rem;
 }
 
+/* Visual Hint */
+.visualHint {
+  margin-bottom: 1.5rem;
+}
+
+.progressBar {
+  height: 6px;
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.progressFill {
+  height: 100%;
+  background: white;
+}
+
+.dotsRow {
+  display: flex;
+  gap: 6px;
+}
+
+.dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.dotActive {
+  background: white;
+}
+
+.barsRow {
+  display: flex;
+  align-items: flex-end;
+  gap: 4px;
+}
+
+.bar {
+  width: 4px;
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 2px;
+}
+
+.barActive {
+  background: white;
+}
+
+/* Loading States */
 .loadingContainer {
   min-height: 60vh;
   display: flex;
@@ -307,13 +357,23 @@
   justify-content: center;
 }
 
-/* Shared Components with Homepage */
-@media (min-width: 768px) {
-  .mainContainer { padding: 2rem; }
-  .greeting { font-size: 3rem; }
-  .header { flex-direction: row; align-items: flex-end; }
+.panoramaCard {
+  background: white;
+  padding: 2.5rem;
+  border-radius: 2.5rem;
+  border: 1px solid rgba(0, 0, 0, 0.05);
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
 }
 
-@media (min-width: 1024px) {
-  .mainContainer { padding: 3rem; }
+@media (min-width: 768px) {
+  .mainContainer {
+    padding: 2rem;
+  }
+  .greeting {
+    font-size: 3rem;
+  }
+  .header {
+    flex-direction: row;
+    align-items: flex-end;
+  }
 }

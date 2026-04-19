@@ -89,9 +89,10 @@ export default function TestRunPage() {
 
   // Timer Logic
   useEffect(() => {
-    if (status === 'active' && !isPaused && timeLeft > 0) {
+    if (status === 'active' && !isPaused && timeLeft !== null && timeLeft > 0) {
       const timer = setInterval(() => {
         setTimeLeft(prev => {
+          if (prev === null) return null;
           if (prev <= 1) {
             handleFinish();
             return 0;

@@ -2,7 +2,6 @@
   max-width: 600px;
   margin: 0 auto;
   min-height: 100vh;
-  background-color: var(--bg-base);
   display: flex;
   flex-direction: column;
   padding-bottom: 100px;
@@ -13,11 +12,9 @@
   align-items: center;
   gap: 12px;
   padding: 20px;
-  background: white;
   position: sticky;
   top: 0;
   z-index: 10;
-  border-bottom: 1px solid rgba(0,0,0,0.06);
 }
 
 .backBtn {
@@ -51,7 +48,6 @@
 .searchBar {
   padding: 16px 20px;
   position: relative;
-  background: white;
 }
 
 .searchIcon {

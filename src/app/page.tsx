@@ -3,8 +3,8 @@
 import React, { useEffect, useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
-import { supabase } from "@/lib/supabase";
-import { 
+import { useUser } from "@/hooks/useUser";
+import {
   Play,
   Library,
   Languages,
@@ -41,21 +41,15 @@ export default function Home() {
   useEffect(() => {
     const hour = new Date().getHours();
     const timeGreeting = hour < 5 ? "夜深了" :
-                         hour < 12 ? "早上好" :
-                         hour < 18 ? "下午好" : "晚上好";
+      hour < 12 ? "早上好" :
+        hour < 18 ? "下午好" : "晚上好";
     setGreeting(timeGreeting);
 
     const formatter = new Intl.DateTimeFormat('zh-CN', { weekday: 'long', month: 'long', day: 'numeric' });
     setCurrentDate(formatter.format(new Date()));
   }, []);
 
-  const { data: user, isLoading: userLoading } = useQuery({
-    queryKey: ["current-user"],
-    queryFn: async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      return user;
-    }
-  });
+  const { user, isLoading: userLoading } = useUser();
 
   const { data: dashboardData, isLoading: dataLoading } = useQuery({
     queryKey: ["dashboard-data", user?.id],
@@ -86,12 +80,12 @@ export default function Home() {
   const reviewProgressPercent = useMemo(() => {
     if (!stats) return 0;
     const reviewed = isWordMode ? stats.todayReviewedWords : stats.todayReviewedGrammars;
-    const remaining = isWordMode 
-      ? (stats.dueLearningWords + stats.dueReviewWords) 
+    const remaining = isWordMode
+      ? (stats.dueLearningWords + stats.dueReviewWords)
       : (stats.dueLearningGrammars + stats.dueReviewGrammars);
-    
+
     const total = reviewed + remaining;
-    if (total === 0) return 100;
+    if (total === 0) return 0;
     return Math.min(100, Math.round((reviewed / total) * 100));
   }, [stats, isWordMode]);
 
@@ -104,12 +98,12 @@ export default function Home() {
         config.mode = newMode === 'grammar' ? 'GRAMMAR_ONLY' : 'WORD_ONLY';
         localStorage.setItem('nemo_study_settings', JSON.stringify(config));
         settingsService.updateStudyConfig(config);
-      } catch (e) {}
+      } catch (e) { }
     }
   };
 
   return (
-    <motion.main 
+    <motion.main
       className={styles.mainContainer}
       initial={{ opacity: 0, y: 15 }}
       animate={{ opacity: 1, y: 0 }}
@@ -123,15 +117,15 @@ export default function Home() {
             </h1>
             <p className={styles.date}>{currentDate}</p>
           </div>
-          
+
           <div className={styles.modeToggleWrapper}>
-            <button 
+            <button
               className={`${styles.modeButton} ${isWordMode ? styles.modeButtonActive : styles.modeButtonInactive}`}
               onClick={() => setStudyMode('word')}
             >
               词汇
             </button>
-            <button 
+            <button
               className={`${styles.modeButton} ${!isWordMode ? styles.modeButtonActive : styles.modeButtonInactive}`}
               onClick={() => setStudyMode('grammar')}
             >
@@ -146,20 +140,20 @@ export default function Home() {
           </div>
         ) : (!user || !dashboardData || !stats) ? (
           <div className={styles.errorState}>
-             <CheckCircle2 size={40} style={{ marginBottom: '1rem', opacity: 0.2 }} />
-             <p>准备就绪，正在同步数据...</p>
+            <CheckCircle2 size={40} style={{ marginBottom: '1rem', opacity: 0.2 }} />
+            <p>准备就绪，正在同步数据...</p>
           </div>
         ) : (
           <>
             <section className={styles.actionSection}>
               {/* Hero Card */}
-              <div 
-                onClick={() => hasTasks && router.push(`/learn?type=${mode}`)}
-                className={`${styles.heroCard} ${hasTasks ? styles.heroShadowIndigo : styles.heroShadowEmerald}`}
+              <div
+                onClick={() => router.push(`/learn?type=${mode}`)}
+                className={`${styles.heroCard} ${(!hasTasks && (newProgressPercent > 0 || reviewProgressPercent > 0)) ? styles.heroShadowEmerald : styles.heroShadowIndigo}`}
               >
-                <div className={hasTasks ? styles.heroBgGradientTasks : styles.heroBgGradientDone}></div>
+                <div className={(!hasTasks && (newProgressPercent > 0 || reviewProgressPercent > 0)) ? styles.heroBgGradientDone : styles.heroBgGradientTasks}></div>
                 <div className={styles.heroOverlay}></div>
-                
+
                 <div className={styles.heroBadge}>
                   <Sparkles size={14} />
                   <span>专注训练</span>
@@ -167,23 +161,21 @@ export default function Home() {
 
                 <div className={styles.heroContent}>
                   <h2 className={styles.heroTitle}>
-                    {hasTasks ? '开始学习' : '今日达成'}
+                    {hasTasks ? '开始学习' : (newProgressPercent > 0 || reviewProgressPercent > 0 ? '今日达成' : '开始学习')}
                   </h2>
                   <p className={styles.heroSub}>
-                    {hasTasks ? `进入${isWordMode ? '单词' : '语法'}流` : '保持优秀节奏。'}
+                    {hasTasks ? `进入${isWordMode ? '单词' : '语法'}流` : (newProgressPercent > 0 || reviewProgressPercent > 0 ? '保持优秀节奏。' : '选择一个词库开始您的旅程')}
                   </p>
-                  
-                  {hasTasks && (
-                    <div className={styles.heroAction}>
-                      <div className={styles.premiumButton}>
-                        <Play size={18} fill="currentColor" />
-                        <span>立即开始</span>
-                      </div>
+
+                  <div className={styles.heroAction}>
+                    <div className={styles.premiumButton}>
+                      <Play size={18} fill="currentColor" />
+                      <span>{hasTasks ? '立即开始' : '进入课程'}</span>
                     </div>
-                  )}
+                  </div>
                 </div>
               </div>
-                
+
               {/* Dual Progress Card */}
               <div className={styles.statCard}>
                 <div className={styles.statCardHeader}>
@@ -194,7 +186,7 @@ export default function Home() {
                 </div>
                 <div className={styles.dualProgressContent}>
                   <div className={styles.progressItem}>
-                    <div style={{width: '94px', height: '94px'}}>
+                    <div style={{ width: '94px', height: '94px' }}>
                       <ModernCircularProgress
                         value={newProgressPercent}
                         size={94}
@@ -202,7 +194,7 @@ export default function Home() {
                         color="#4F46E5"
                         trackColor="rgba(79, 70, 229, 0.08)"
                       >
-                        <div style={{fontSize: '1.3rem', fontWeight: 800, color: '#1e293b', letterSpacing: '-0.02em'}}>
+                        <div style={{ fontSize: '1.3rem', fontWeight: 800, color: '#1e293b', letterSpacing: '-0.02em' }}>
                           {Math.round(newProgressPercent)}%
                         </div>
                       </ModernCircularProgress>
@@ -211,7 +203,7 @@ export default function Home() {
                   </div>
 
                   <div className={styles.progressItem}>
-                    <div style={{width: '94px', height: '94px'}}>
+                    <div style={{ width: '94px', height: '94px' }}>
                       <ModernCircularProgress
                         value={reviewProgressPercent}
                         size={94}
@@ -219,7 +211,7 @@ export default function Home() {
                         color="#10b981"
                         trackColor="rgba(16, 185, 129, 0.08)"
                       >
-                        <div style={{fontSize: '1.3rem', fontWeight: 800, color: '#1e293b', letterSpacing: '-0.02em'}}>
+                        <div style={{ fontSize: '1.3rem', fontWeight: 800, color: '#1e293b', letterSpacing: '-0.02em' }}>
                           {Math.round(reviewProgressPercent)}%
                         </div>
                       </ModernCircularProgress>
@@ -238,9 +230,9 @@ export default function Home() {
                   </div>
                 </div>
                 <div className={styles.taskRowsContainer}>
-                  <TaskRow color="#6366f1" label="今日新学" count={isWordMode ? stats.dueNewWords : stats.dueNewGrammars} />
-                  <TaskRow color="#f59e0b" label="学习中" count={isWordMode ? stats.dueLearningWords : stats.dueLearningGrammars} />
-                  <TaskRow color="#10b981" label="待复习" count={isWordMode ? stats.dueReviewWords : stats.dueReviewGrammars} />
+                  <TaskRow color="#3B82F6" label="今日新学" count={isWordMode ? stats.dueNewWords : stats.dueNewGrammars} />
+                  <TaskRow color="#EF4444" label="学习中" count={isWordMode ? stats.dueLearningWords : stats.dueLearningGrammars} />
+                  <TaskRow color="#10B981" label="待复习" count={isWordMode ? stats.dueReviewWords : stats.dueReviewGrammars} />
                 </div>
               </div>
             </section>
@@ -265,33 +257,33 @@ export default function Home() {
               </div>
 
               <div className={styles.navGrid}>
-                <NavCard 
-                  icon={<Flame size={28} />} 
-                  title="学习热度" 
+                <NavCard
+                  icon={<Flame size={28} />}
+                  title="学习热度"
                   desc="热力全景"
-                  colorTheme={{bg: '#fff7ed', border: '#ffedd5', text: '#ea580c'}}
-                  onClick={() => router.push('/heatmap')} 
+                  colorTheme={{ bg: '#fff7ed', border: '#ffedd5', text: '#ea580c' }}
+                  onClick={() => router.push('/heatmap')}
                 />
-                <NavCard 
-                  icon={<Library size={28} />} 
-                  title="词库管理" 
+                <NavCard
+                  icon={<Library size={28} />}
+                  title="词库管理"
                   desc="同步进度"
-                  colorTheme={{bg: '#ecfdf5', border: '#d1fae5', text: '#059669'}}
-                  onClick={() => router.push('/library')} 
+                  colorTheme={{ bg: '#ecfdf5', border: '#d1fae5', text: '#059669' }}
+                  onClick={() => router.push('/library')}
                 />
-                <NavCard 
-                  icon={<Languages size={28} />} 
-                  title="语法专区" 
+                <NavCard
+                  icon={<Languages size={28} />}
+                  title="语法专区"
                   desc="结构拆解"
-                  colorTheme={{bg: '#eef2ff', border: '#e0e7ff', text: '#4f46e5'}}
-                  onClick={() => router.push('/grammar')} 
+                  colorTheme={{ bg: '#eef2ff', border: '#e0e7ff', text: '#4f46e5' }}
+                  onClick={() => router.push('/grammar')}
                 />
-                <NavCard 
-                  icon={<Grid3X3 size={28} />} 
-                  title="五十音图" 
+                <NavCard
+                  icon={<Grid3X3 size={28} />}
+                  title="五十音图"
                   desc="基础训练"
-                  colorTheme={{bg: '#fff1f2', border: '#ffe4e6', text: '#e11d48'}}
-                  onClick={() => router.push('/library/kana')} 
+                  colorTheme={{ bg: '#fff1f2', border: '#ffe4e6', text: '#e11d48' }}
+                  onClick={() => router.push('/library/kana')}
                 />
               </div>
             </section>
@@ -316,15 +308,15 @@ function TaskRow({ color, label, count }: { color: string, label: string, count:
   );
 }
 
-function NavCard({ icon, title, desc, colorTheme, onClick }: { icon: React.ReactNode, title: string, desc: string, colorTheme: {bg: string, border: string, text: string}, onClick: () => void }) {
+function NavCard({ icon, title, desc, colorTheme, onClick }: { icon: React.ReactNode, title: string, desc: string, colorTheme: { bg: string, border: string, text: string }, onClick: () => void }) {
   return (
-    <div 
-      onClick={onClick} 
+    <div
+      onClick={onClick}
       className={styles.navCard}
       style={{ backgroundColor: colorTheme.bg, borderColor: colorTheme.border, color: colorTheme.text }}
     >
       <div className={styles.navIconBox}>
-         {icon}
+        {icon}
       </div>
       <div className={styles.navFooter}>
         <div className={styles.navInfo}>

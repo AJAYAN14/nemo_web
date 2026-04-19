@@ -22,10 +22,6 @@ import {
   Shuffle, 
   Settings as SettingsIcon,
   Volume2,
-  FileDown,
-  FileUp,
-  RotateCcw,
-  Wrench,
   ChevronRight,
   Layers,
   Info,
@@ -100,16 +96,7 @@ export default function SettingsPage() {
     setTimeout(() => setStatusMessage(null), 3000);
   };
 
-  const handleExport = () => {
-    const data = localStorage.getItem('nemo_study_settings');
-    const blob = new Blob([data || '{}'], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `nemo_backup_${new Date().getTime()}.json`;
-    a.click();
-    showToast("备份导出成功");
-  };
+
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
@@ -236,39 +223,6 @@ export default function SettingsPage() {
               subtitle="调节语速和音调"
               showDivider={false}
               trailing={<ChevronRight size={14} opacity={0.4} />}
-            />
-          </SettingsCard>
-        </section>
-
-        {/* 数据 */}
-        <section className={styles.section}>
-          <h2 className={styles.sectionTitle}>数据</h2>
-          <SettingsCard>
-            <SquircleSettingItem 
-              icon={<FileDown size={22} />} 
-              iconColor="#10B981"
-              title="导出数据备份"
-              subtitle="将本地进度导出为 JSON"
-              onClick={handleExport}
-            />
-            <SquircleSettingItem 
-              icon={<FileUp size={22} />} 
-              iconColor="#3B82F6"
-              title="恢复数据备份"
-              subtitle="从 JSON 文件恢复进度"
-            />
-            <SquircleSettingItem 
-              icon={<RotateCcw size={22} />} 
-              iconColor="#EF4444"
-              title="重置学习进度"
-              subtitle="清空所有数据 (慎用)"
-            />
-            <SquircleSettingItem 
-              icon={<Wrench size={22} />} 
-              iconColor="#4F46E5"
-              title="修复本地数据"
-              subtitle="清理重复数据"
-              showDivider={false}
             />
           </SettingsCard>
         </section>

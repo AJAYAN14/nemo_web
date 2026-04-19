@@ -58,10 +58,12 @@ export const statisticsService = {
         .eq('item_type', itemType)
         .in('state', [0, 1, 2, 3])
         .lte('next_review', nowWithBuffer)
-        .lte('buried_until', epochDay);
+        .or(`buried_until.lte.${epochDay},buried_until.is.null`);
 
       if (level && level !== 'ALL') {
-        query = query.eq('level', level);
+        // ANDROID PARITY: Only State 0 (New) items are level-locked.
+        // State 1, 2, 3 items should be counted regardless of the current level filter.
+        query = query.or(`state.neq.0,level.eq.${level}`);
       }
 
       const { data, count, error } = await query;
@@ -88,7 +90,8 @@ export const statisticsService = {
           .eq('item_type', itemType)
           .in('state', stateArr)
           .lte('next_review', nowWithBuffer)
-          .lte('buried_until', epochDay);
+          .or(`buried_until.lte.${epochDay},buried_until.is.null`);
+
         // Level filtering rule:
         // Stepping/Review (1, 2, 3) are level-agnostic (Android parity).
         // New (0) is level-specific.

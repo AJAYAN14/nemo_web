@@ -21,11 +21,20 @@ interface LearnHeaderProps {
   onShowRatingGuide: () => void;
   onClose?: () => void;
   progressPercent: number;
+  stats?: {
+    dueNewWords: number;
+    dueLearningWords: number;
+    dueReviewWords: number;
+    dueNewGrammars: number;
+    dueLearningGrammars: number;
+    dueReviewGrammars: number;
+  };
 }
 
 export function LearnHeader({
   onShowRatingGuide,
-  progressPercent
+  progressPercent,
+  stats
 }: LearnHeaderProps) {
   const {
     state,
@@ -48,9 +57,20 @@ export function LearnHeader({
   const isAnswerShown = state.isCardFlipped;
   const isDisabled = status === 'Processing';
 
-  const newCount = wordList.filter(i => i.badge === 'NEW').length;
-  const relearnCount = wordList.filter(i => i.badge === 'RELEARN').length;
-  const reviewCount = wordList.length - newCount - relearnCount;
+  const isWordMode = mode === 'Word';
+  
+  // Use global stats if provided, fallback to current batch counts
+  const newCount = stats 
+    ? (isWordMode ? stats.dueNewWords : stats.dueNewGrammars)
+    : wordList.filter(i => i.badge === 'NEW').length;
+    
+  const relearnCount = stats
+    ? (isWordMode ? stats.dueLearningWords : stats.dueLearningGrammars)
+    : wordList.filter(i => i.badge === 'RELEARN').length;
+    
+  const reviewCount = stats
+    ? (isWordMode ? stats.dueReviewWords : stats.dueReviewGrammars)
+    : wordList.filter(i => i.badge === 'REVIEW').length;
 
   const canGoPrev = currentIndex > 0 && !isAnswerShown;
   const canGoNext = currentIndex < totalCount - 1 && !isAnswerShown;

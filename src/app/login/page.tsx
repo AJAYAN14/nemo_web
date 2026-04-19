@@ -3,12 +3,13 @@
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/lib/supabase';
+import { createClient } from '@/utils/supabase/client';
 import styles from './page.module.css';
 
 export default function LoginPage() {
   const router = useRouter();
   const queryClient = useQueryClient();
+  const supabase = createClient();
   
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -55,7 +56,7 @@ export default function LoginPage() {
           {error && <div className={styles.error}>{error}</div>}
           
           <div className={styles.inputGroup}>
-            <label className={styles.label} htmlFor="email">邮箱邮箱</label>
+            <label className={styles.label} htmlFor="email">邮箱</label>
             <input 
               id="email"
               type="email" 

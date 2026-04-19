@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
+import { useUser } from '@/hooks/useUser';
 import styles from './AccountPage.module.css';
 import { 
   ChevronLeft, 
@@ -27,8 +28,7 @@ const AVATAR_COLORS = [
 
 export default function AccountPage() {
   const router = useRouter();
-  const [user, setUser] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
+  const { user, isLoading: loading, signOut } = useUser();
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
 
   // Edit States
@@ -41,18 +41,12 @@ export default function AccountPage() {
   const [selectedColor, setSelectedColor] = useState(AVATAR_COLORS[0]);
 
   useEffect(() => {
-    async function getUser() {
-      const { data: { user } } = await supabase.auth.getUser();
-      setUser(user);
-      if (user) {
-        setTempName(user.user_metadata?.full_name || '');
-        setTempEmail(user.email || '');
-        setSelectedColor(user.user_metadata?.avatar_color || AVATAR_COLORS[0]);
-      }
-      setLoading(false);
+    if (user) {
+      setTempName(user.user_metadata?.full_name || '');
+      setTempEmail(user.email || '');
+      setSelectedColor(user.user_metadata?.avatar_color || AVATAR_COLORS[0]);
     }
-    getUser();
-  }, []);
+  }, [user]);
 
   const showToast = (msg: string) => {
     setStatusMessage(msg);
@@ -60,8 +54,7 @@ export default function AccountPage() {
   };
 
   const handleLogout = async () => {
-    await supabase.auth.signOut();
-    router.replace('/login');
+    await signOut();
   };
 
   const handleUpdateName = async () => {
@@ -72,7 +65,6 @@ export default function AccountPage() {
     if (error) {
       alert("更新失败: " + error.message);
     } else {
-      setUser({ ...user, user_metadata: { ...user.user_metadata, full_name: tempName } });
       setIsNameModalOpen(false);
       showToast("用户名已更新");
     }
@@ -97,7 +89,6 @@ export default function AccountPage() {
       alert("更新失败: " + error.message);
     } else {
       setSelectedColor(color);
-      setUser({ ...user, user_metadata: { ...user.user_metadata, avatar_color: color } });
       setIsAvatarModalOpen(false);
       showToast("头像配色已更新");
     }

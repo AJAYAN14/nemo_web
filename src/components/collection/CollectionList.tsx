@@ -59,7 +59,8 @@ export default function CollectionList({
             autoAdvance: true,
             prioritizeWrong: false,
             prioritizeNew: false,
-            comprehensiveQuestionCounts: {}
+            comprehensiveQuestionCounts: {},
+            showHint: false
           });
           setItems(data);
         }
@@ -86,7 +87,8 @@ export default function CollectionList({
       questionCount: 15,
       selectedWordLevels: ['ALL'],
       selectedGrammarLevels: ['ALL'],
-      testMode: 'RANDOM'
+      testMode: 'RANDOM',
+      showHint: false
     };
     const configStr = encodeURIComponent(JSON.stringify(config));
     router.push(`/test/run/comprehensive?config=${configStr}`);

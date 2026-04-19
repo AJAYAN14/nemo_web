@@ -3,6 +3,7 @@ import "./globals.css";
 import { Navigation } from "@/components/layout/Navigation";
 import QueryProvider from "@/components/providers/QueryProvider";
 import { UIProvider } from "@/components/providers/UIProvider";
+import { AuthProvider } from "@/components/providers/AuthProvider";
 import { ClientLayoutWrapper } from "@/components/layout/ClientLayoutWrapper";
 
 // Using system fonts to bypass next/font/google build errors in this environment
@@ -23,12 +24,14 @@ export default function RootLayout({
     <html lang="en" suppressHydrationWarning>
       <body className={`${inter.variable} ${outfit.variable} font-sans`} suppressHydrationWarning>
         <QueryProvider>
-          <UIProvider>
-            <Navigation />
-            <ClientLayoutWrapper>
-              {children}
-            </ClientLayoutWrapper>
-          </UIProvider>
+          <AuthProvider>
+            <UIProvider>
+              <Navigation />
+              <ClientLayoutWrapper>
+                {children}
+              </ClientLayoutWrapper>
+            </UIProvider>
+          </AuthProvider>
         </QueryProvider>
       </body>
     </html>
