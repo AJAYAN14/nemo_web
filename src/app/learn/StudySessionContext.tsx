@@ -6,7 +6,8 @@ import {
   StudyItem, 
   LearningStatus, 
   StudyConfig, 
-  LearningMode
+  LearningMode,
+  LearningStats
 } from '@/types/study';
 import { FsrsRating } from '@/lib/srs/fsrs';
 import { useSessionState } from '@/hooks/learn/useSessionState';
@@ -28,6 +29,7 @@ interface StudySessionContextType {
   showAnswerDelayDuration: number;
   initialTotalCount: number;
   ratingIntervals: Record<number, string>;
+  todayStats?: LearningStats;
   
   // Actions
   showAnswer: () => void;
@@ -58,10 +60,11 @@ interface StudySessionProviderProps {
   initialItems: StudyItem[];
   config: StudyConfig;
   mode: LearningMode;
+  todayStats?: LearningStats;
   children: React.ReactNode;
 }
 
-export function StudySessionProvider({ userId, initialItems, config, mode, children }: StudySessionProviderProps) {
+export function StudySessionProvider({ userId, initialItems, config, mode, todayStats, children }: StudySessionProviderProps) {
   const queryClient = useQueryClient();
   // 1. Initial State Resolution (Restore from sessionStorage)
   const savedSession = useMemo(() => sessionPersistence.loadSession('learn'), []);
@@ -349,6 +352,7 @@ export function StudySessionProvider({ userId, initialItems, config, mode, child
     showAnswerDelayDuration,
     initialTotalCount,
     ratingIntervals,
+    todayStats,
     showAnswer: () => dispatch({ type: 'SHOW_ANSWER' }),
     rate,
     undo,

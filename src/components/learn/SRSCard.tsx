@@ -102,10 +102,10 @@ export function SRSCard({ item, isAnswerShown, onFlip }: SRSCardProps) {
             <motion.div
               key="sticker"
               className={styles.stickerArea}
-              initial={{ opacity: 0, scale: 0.8 }}
+              initial={{ opacity: 0, scale: 0.96 }}
               animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.8, y: -20 }}
-              transition={{ type: 'spring', damping: 20 }}
+              exit={{ opacity: 0, scale: 0.96, y: -10 }}
+              transition={{ type: 'spring', stiffness: 500, damping: 40 }}
             >
               <div className={styles.stickerContainer}>
                 <Image src={stickerUrl} alt="sticker" className={styles.stickerImage} width={120} height={120} />
@@ -115,10 +115,10 @@ export function SRSCard({ item, isAnswerShown, onFlip }: SRSCardProps) {
             <motion.div
               key="answer"
               className={styles.answerWrapper}
-              initial={{ opacity: 0, y: 30 }}
+              initial={{ opacity: 0, y: 15 }}
               animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -20 }}
-              transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+              exit={{ opacity: 0, y: -10 }}
+              transition={{ type: 'spring', stiffness: 500, damping: 40 }}
             >
               {isWord ? (
                 <div className={styles.answerCard}>
@@ -271,7 +271,7 @@ function GrammarDetails({
                   initial={{ height: 0, opacity: 0 }}
                   animate={{ height: 'auto', opacity: 1 }}
                   exit={{ height: 0, opacity: 0 }}
-                  transition={{ duration: 0.3, ease: 'easeInOut' as const }}
+                  transition={{ type: "spring", stiffness: 500, damping: 40 }}
                   style={{ overflow: 'hidden' }}
                 >
                   <div className={styles.cardAreaContent}>

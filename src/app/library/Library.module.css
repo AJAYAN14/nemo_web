@@ -1,21 +1,15 @@
 .container {
-  max-width: 1200px;
-  margin: 0 auto;
-  padding: 2rem 1rem;
-  color: var(--foreground);
+  min-height: 100vh;
+  background: #F4F5F7;
 }
 
-.header {
+.contentWrapper {
+  max-width: 600px;
+  margin: 0 auto;
+  padding: 1.5rem 1.25rem;
   display: flex;
   flex-direction: column;
   gap: 1.5rem;
-  margin-bottom: 2rem;
-}
-
-.title {
-  font-size: 1.875rem;
-  font-weight: 800;
-  letter-spacing: -0.025em;
 }
 
 .searchContainer {
@@ -115,6 +109,12 @@
   gap: 1.25rem;
 }
 
+.content {
+  max-width: 600px;
+  margin: 0 auto;
+  padding: 0 1.25rem 6rem;
+}
+
 .empty {
   grid-column: 1 / -1;
   text-align: center;
@@ -132,8 +132,12 @@
 }
 
 @media (max-width: 640px) {
-  .container {
-    padding: 1.5rem 1rem 6rem;
+  .contentWrapper {
+    padding: 1.5rem 1rem;
+  }
+  
+  .content {
+    padding: 0 1rem 6rem;
   }
   
   .filterBar {

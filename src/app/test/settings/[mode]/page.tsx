@@ -2,7 +2,7 @@
 
 import React, { useState, useMemo } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { ChevronLeft, Play } from 'lucide-react';
+import { Play } from 'lucide-react';
 import styles from './settings.module.css';
 import { SettingRow } from '@/components/test/settings/SettingRow';
 import { SwitchRow } from '@/components/test/settings/SwitchRow';
@@ -12,6 +12,7 @@ import { DEFAULT_TEST_CONFIG, TestConfig, QuestionSource, TestContentType, WordL
 import { motion } from 'framer-motion';
 import { statisticsService } from '@/lib/services/statisticsService';
 import { supabase } from '@/lib/supabase';
+import StickyHeader from "@/components/common/StickyHeader";
 
 
 export default function TestSettingsPage() {
@@ -337,14 +338,7 @@ export default function TestSettingsPage() {
 
   return (
     <div className={styles.container}>
-      <header className={styles.header}>
-        <div className={styles.headerContent}>
-          <button className={styles.backBtn} onClick={() => router.back()}>
-            <ChevronLeft size={24} />
-          </button>
-          <h1 className={styles.title}>{pageTitle}</h1>
-        </div>
-      </header>
+      <StickyHeader title={pageTitle} />
 
       <main className={styles.scrollArea}>
         <motion.div 

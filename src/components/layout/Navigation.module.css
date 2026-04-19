@@ -21,10 +21,10 @@
   top: 0;
   left: 0;
   bottom: 0;
-  width: 240px;
-  background: white;
-  border-right: 1px solid var(--border);
-  padding: 1.5rem 1rem;
+  width: 180px;
+  background: transparent;
+  border-right: 1px solid rgba(226, 232, 240, 0.6);
+  padding: 1.5rem 0.75rem;
   flex-direction: column;
   z-index: 1000;
   overflow-x: hidden;
@@ -33,63 +33,16 @@
 .sidebarHeader {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  margin-bottom: 2.5rem;
-  padding: 0 0.5rem;
+  margin-bottom: 1.25rem;
+  padding: 0 0.75rem;
 }
 
 .logo {
-  font-size: 1.5rem;
+  font-size: 1.4rem;
   font-weight: 900;
   color: var(--foreground);
   font-family: var(--font-outfit), sans-serif;
   letter-spacing: -0.03em;
-  transition: all 0.3s;
-}
-
-.collapseButton {
-  width: 32px;
-  height: 32px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 8px;
-  border: 1px solid var(--border);
-  background: white;
-  color: var(--muted);
-  cursor: pointer;
-  transition: background-color 0.2s, color 0.2s;
-}
-
-.collapseButton:hover {
-  background: var(--bg-secondary);
-  color: var(--foreground);
-  border-color: var(--muted);
-}
-
-.navVersionLabel {
-  font-size: 0.65rem;
-  font-weight: 800;
-  color: var(--muted);
-  padding: 0.5rem 1rem;
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
-  opacity: 0.6;
-}
-
-.sidebarCollapsed .navVersionLabel {
-  text-align: center;
-  padding: 0.5rem 0;
-  font-size: 0.6rem;
-}
-
-.legacyNavItem {
-  opacity: 0.6;
-}
-
-.legacyNavItem:hover {
-  opacity: 1;
-  background-color: var(--bg-secondary);
 }
 
 .navItem {
@@ -136,68 +89,38 @@
 .sidebarItems {
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
+  gap: 0.25rem;
 }
 
 .sidebarItem {
   display: flex;
   align-items: center;
-  gap: 1rem;
-  padding: 0.85rem 1rem;
-  border-radius: 14px;
-  color: var(--muted);
-  font-weight: 700;
+  gap: 0.875rem;
+  padding: 0.75rem 0.875rem;
+  border-radius: 9999px;
+  color: var(--foreground);
+  font-weight: 600;
   text-decoration: none;
   transition: all 0.2s;
   position: relative;
-  font-size: 0.95rem;
+  font-size: 0.9375rem;
   white-space: nowrap;
-}
-
-.sidebarCollapsed .sidebarHeader {
-  justify-content: center;
-  padding: 0;
-}
-
-.sidebarCollapsed .logo {
-  font-size: 1.8rem;
-}
-
-.sidebarCollapsed .collapseButton {
-  position: absolute;
-  right: -5px;
-  top: 60px;
-  width: 24px;
-  height: 24px;
-  background: white;
-  border-radius: 50%;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-  opacity: 0;
-  transition: opacity 0.2s;
-  z-index: 1001;
-}
-
-.sidebarCollapsed:hover .collapseButton {
-  opacity: 1;
-}
-
-.sidebarCollapsed .sidebarItem {
-  justify-content: center;
-  padding: 0.85rem 0;
-  gap: 0;
+  background: transparent;
 }
 
 .sidebarItem:hover {
-  background: var(--bg-secondary);
+  background: rgba(0, 0, 0, 0.04);
   color: var(--foreground);
 }
 
 .activeItem {
-  color: #4F46E5;
-  background: rgba(79, 70, 229, 0.08);
+  color: #0f172a;
+  background: white;
+  font-weight: 700;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
 }
 
-.activePill {
+.activeIndicator {
   position: absolute;
   left: 0;
   width: 4px;

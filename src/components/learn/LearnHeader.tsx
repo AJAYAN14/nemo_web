@@ -21,20 +21,11 @@ interface LearnHeaderProps {
   onShowRatingGuide: () => void;
   onClose?: () => void;
   progressPercent: number;
-  stats?: {
-    dueNewWords: number;
-    dueLearningWords: number;
-    dueReviewWords: number;
-    dueNewGrammars: number;
-    dueLearningGrammars: number;
-    dueReviewGrammars: number;
-  };
 }
 
 export function LearnHeader({
   onShowRatingGuide,
-  progressPercent,
-  stats
+  progressPercent
 }: LearnHeaderProps) {
   const {
     state,
@@ -49,7 +40,8 @@ export function LearnHeader({
     isShowAnswerDelayEnabled,
     toggleShowAnswerDelay,
     showAnswerDelayDuration,
-    cycleDelayDuration
+    cycleDelayDuration,
+    todayStats: stats
   } = useStudySession();
 
   const { wordList, currentIndex, status } = state;

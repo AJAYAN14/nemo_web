@@ -3,6 +3,7 @@
 import React, { useEffect, useState, Suspense } from "react";
 import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
 import { useInView } from "react-intersection-observer";
+import { useRouter } from "next/navigation";
 import { Search, BookOpen, FileText } from "lucide-react";
 import { clsx } from "clsx";
 import { useSearchParams } from "next/navigation";
@@ -14,6 +15,7 @@ import { LeechCard } from "@/components/library/LeechCard";
 import { DictionaryTab, JLPTLevel, DictionaryFilters } from "@/types/dictionary";
 import { studyService } from "@/lib/services/studyService";
 import { supabase } from "@/lib/supabase";
+import StickyHeader from "@/components/common/StickyHeader";
 
 const LEVELS: (JLPTLevel | "ALL")[] = ["ALL", "N5", "N4", "N3", "N2", "N1"];
 type LibraryTab = DictionaryTab | "leeches";
@@ -26,6 +28,7 @@ function parseTab(value: string | null): LibraryTab | null {
 }
 
 function LibraryContent() {
+  const router = useRouter();
   const searchParams = useSearchParams();
   const initialTab = parseTab(searchParams.get("tab")) || "words";
   
@@ -92,8 +95,12 @@ function LibraryContent() {
 
   return (
     <div className={styles.container}>
-      <header className={styles.header}>
-        <h1 className={styles.title}>词库</h1>
+      <StickyHeader 
+        title="词库" 
+        onBack={() => router.push('/progress')}
+      />
+      
+      <div className={styles.contentWrapper}>
         <div className={styles.searchContainer}>
           <Search size={18} className={styles.searchIcon} />
           <input 
@@ -142,7 +149,7 @@ function LibraryContent() {
             ))}
           </div>
         </div>
-      </header>
+      </div>
 
       <div className={styles.content}>
         {activeTab === "words" ? (

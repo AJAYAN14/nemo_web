@@ -117,13 +117,17 @@ function LearnSessionUI({ todayStats }: { todayStats: LearningStats | undefined 
 
   const variants = {
     enter: (direction: "FORWARD" | "BACKWARD") => ({
-      x: direction === "FORWARD" ? 100 : -100,
-      opacity: 0
+      x: direction === "FORWARD" ? 40 : -40,
+      scale: 0.96,
+      opacity: 0,
+      zIndex: 1,
     }),
-    center: { zIndex: 1, x: 0, opacity: 1 },
+    center: { zIndex: 2, x: 0, scale: 1, opacity: 1 },
     exit: (direction: "FORWARD" | "BACKWARD") => ({
       zIndex: 0,
-      x: direction === "FORWARD" ? -100 : 100,
+      x: direction === "FORWARD" ? -20 : 20,
+      y: 10, // slight drop effect
+      scale: 0.96,
       opacity: 0
     })
   };
@@ -133,7 +137,6 @@ function LearnSessionUI({ todayStats }: { todayStats: LearningStats | undefined 
       <LearnHeader
         onShowRatingGuide={() => setIsRatingGuideOpen(true)}
         progressPercent={progressPercent}
-        stats={todayStats}
       />
 
       <NemoSnackbar
@@ -155,7 +158,7 @@ function LearnSessionUI({ todayStats }: { todayStats: LearningStats | undefined 
 
       <main className={styles.sessionContent}>
         <div className={styles.cardArea}>
-          <AnimatePresence initial={false} custom={slideDirection} mode="wait">
+          <AnimatePresence initial={false} custom={slideDirection} mode="popLayout">
             {currentItem && (
               <motion.div
                 key={currentItem.id}
@@ -164,10 +167,7 @@ function LearnSessionUI({ todayStats }: { todayStats: LearningStats | undefined 
                 initial="enter"
                 animate="center"
                 exit="exit"
-                transition={{
-                  x: { type: "spring", stiffness: 300, damping: 30 },
-                  opacity: { duration: 0.2 }
-                }}
+                transition={{ type: "spring", stiffness: 500, damping: 40 }}
                 className={styles.motionWrapper}
               >
                 <SRSCard
@@ -212,6 +212,7 @@ export function LearnSession(props: LearnSessionProps) {
       initialItems={props.initialItems} 
       config={props.config} 
       mode={currentMode}
+      todayStats={props.todayStats}
     >
       <LearnSessionUI todayStats={props.todayStats} />
     </StudySessionProvider>

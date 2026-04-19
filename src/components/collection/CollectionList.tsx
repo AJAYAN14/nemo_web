@@ -4,7 +4,6 @@ import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { 
-  ChevronLeft, 
   PlayCircle,
   Search,
   ArrowRight,
@@ -13,6 +12,7 @@ import {
 } from 'lucide-react';
 import { testService } from '@/lib/services/testService';
 import styles from './CollectionList.module.css';
+import StickyHeader from "@/components/common/StickyHeader";
 
 interface CollectionListProps {
   title: string;
@@ -102,29 +102,23 @@ export default function CollectionList({
 
   return (
     <div className={styles.container}>
-      <header className={styles.header}>
-        <button onClick={() => router.back()} className={styles.backBtn}>
-          <ChevronLeft size={24} />
-        </button>
-        <h1 className={styles.title}>{title}</h1>
-        <div className={styles.countBadge} style={{ backgroundColor: `${countColor}1A`, color: countColor }}>
-          {items.length}
+      <StickyHeader title={title} />
+      <div style={{ height: '24px' }} />
+
+      <div className={styles.contentWrapper}>
+        <div className={styles.searchBar}>
+          <Search size={18} className={styles.searchIcon} />
+          <input 
+            type="text" 
+            placeholder={`在${title}中搜索...`} 
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className={styles.searchInput}
+            style={{ '--focus-color': accentColor } as any}
+          />
         </div>
-      </header>
 
-      <div className={styles.searchBar}>
-        <Search size={18} className={styles.searchIcon} />
-        <input 
-          type="text" 
-          placeholder={`在${title}中搜索...`} 
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          className={styles.searchInput}
-          style={{ '--focus-color': accentColor } as any}
-        />
-      </div>
-
-      <div className={styles.list}>
+        <div className={styles.list}>
         {loading ? (
           <div className={styles.loadingState}>加载中...</div>
         ) : filteredItems.length === 0 ? (
@@ -175,6 +169,7 @@ export default function CollectionList({
             );
           })
         )}
+        </div>
       </div>
 
       {items.length > 0 && (

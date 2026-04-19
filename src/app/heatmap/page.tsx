@@ -4,12 +4,12 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabase";
-import { ChevronLeft } from "lucide-react";
 import styles from "./page.module.css";
 import { statisticsService } from "@/lib/services/statisticsService";
 import { HeatmapGrid } from "@/components/statistics/HeatmapGrid";
 import { StatsHighlight } from "@/components/statistics/StatsHighlight";
 import { SakuraLoader } from "@/components/common/SakuraLoader";
+import StickyHeader from "@/components/common/StickyHeader";
 
 export default function HeatmapPage() {
   const router = useRouter();
@@ -57,13 +57,7 @@ export default function HeatmapPage() {
   return (
     <main className={styles.container}>
       {/* Header */}
-      <header className={styles.header}>
-        <button className={styles.backBtn} onClick={() => router.back()}>
-          <ChevronLeft size={24} />
-        </button>
-        <h1 className={styles.title}>学习热力图</h1>
-        <div className={styles.headerSpacer} />
-      </header>
+      <StickyHeader title="学习热力图" />
 
       <div className={styles.scrollContent}>
         {/* Heatmap Section */}

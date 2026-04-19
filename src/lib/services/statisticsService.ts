@@ -9,162 +9,89 @@ export const statisticsService = {
    * Logic matches Android DateTimeUtils.kt: toLearningDay
    */
   getLearningDay(date: Date = new Date(), resetHour: number = 4): number {
-    // If we're before resetHour, it counts as previous day
-    const localHour = date.getHours();
-    const targetDate = new Date(date);
-
-    if (localHour < resetHour) {
-      targetDate.setDate(targetDate.getDate() - 1);
-    }
-
-    // Calculate Epoch Day of that target date (00:00:00 local)
-    const year = targetDate.getFullYear();
-    const month = targetDate.getMonth() + 1;
-    const day = targetDate.getDate();
-
-    // Standard Unix Epoch Day calculation
-    // LocalDate.of(y,m,d).toEpochDay() conversion:
-    const d = new Date(year, month - 1, day, 12, 0, 0); // Noon to avoid DST issues
-    return Math.floor(d.getTime() / 86400000);
+    // 1. Convert to UTC timestamp
+    const utcTs = date.getTime();
+    
+    // 2. Adjust for user's timezone offset and reset hour
+    // We want the day to change at resetHour local time.
+    // Logic: (LocalTime - ResetHour) -> Floor to Day
+    const timezoneOffsetMs = date.getTimezoneOffset() * 60000;
+    const localAdjustedTs = utcTs - timezoneOffsetMs - (resetHour * 3600000);
+    
+    return Math.floor(localAdjustedTs / 86400000);
   },
 
   /**
-   * Fetch today's aggregated stats
+   * Helper to ensure session is loaded.
+   */
+  async ensureSession(): Promise<string> {
+    const { data: { session }, error } = await supabase.auth.getSession();
+    if (error) throw error;
+    if (!session) throw new Error("No active session found.");
+    return session.user.id;
+  },
+
+  /**
+   * Fetch today's aggregated stats using the atomic overview RPC.
+   * Web Excellence: Atomic, session-aware, and level-bound.
    */
   async getTodayStats(userId: string, resetHour: number = 4): Promise<LearningStats> {
+    await this.ensureSession();
+
     const [epochDay, config] = await Promise.all([
       this.getLearningDay(new Date(), resetHour),
       settingsService.getStudyConfig()
     ]);
 
-    const { data: record } = await supabase
-      .from('study_records')
-      .select('*')
-      .eq('user_id', userId)
-      .eq('date', epochDay)
-      .maybeSingle();
-
-    const now = new Date();
-    const learnAheadMinutes = config.learnAheadLimit || 20;
-    const nowWithBuffer = new Date(now.getTime() + learnAheadMinutes * 60000).toISOString();
-
-    // Keep home counters aligned with learn page queue source:
-    // same state filter, same level filter, same ordering.
-    const getDetailedCounts = async (itemType: 'word' | 'grammar', level: string) => {
-      let query = supabase
-        .from('user_progress')
-        .select('state', { count: 'exact' })
-        .eq('user_id', userId)
-        .eq('item_type', itemType)
-        .in('state', [0, 1, 2, 3])
-        .lte('next_review', nowWithBuffer)
-        .or(`buried_until.lte.${epochDay},buried_until.is.null`);
-
-      if (level && level !== 'ALL') {
-        // ANDROID PARITY: Only State 0 (New) items are level-locked.
-        // State 1, 2, 3 items should be counted regardless of the current level filter.
-        query = query.or(`state.neq.0,level.eq.${level}`);
-      }
-
-      const { data, count, error } = await query;
-      if (error) throw error;
-
-      const items = data || [];
-      const stats = {
-        new: items.filter(i => i.state === 0).length,
-        learning: items.filter(i => i.state === 1 || i.state === 3).length,
-        review: items.filter(i => i.state === 2).length,
-        total: count || 0
-      };
-
-      // Since we selected *without* limit to get counts, but Supabase might still paginate,
-      // for exact counts we should ideally use a specialized RPC or multiple count queries if the dataset is huge.
-      // However, for most users fetching ~hundreds of rows of 'state' only is fine.
-      // To be even more robust and avoid any fetch limits, we do separate counts for each state.
-
-      const countByState = async (stateArr: number[]) => {
-        let q = supabase
-          .from('user_progress')
-          .select('*', { count: 'exact', head: true })
-          .eq('user_id', userId)
-          .eq('item_type', itemType)
-          .in('state', stateArr)
-          .lte('next_review', nowWithBuffer)
-          .or(`buried_until.lte.${epochDay},buried_until.is.null`);
-
-        // Level filtering rule:
-        // Stepping/Review (1, 2, 3) are level-agnostic (Android parity).
-        // New (0) is level-specific.
-        if (level && level !== 'ALL' && stateArr.includes(0)) {
-          q = q.eq('level', level);
-        }
-        const { count: c, error: e } = await q;
-        if (e) throw e;
-        return c || 0;
-      };
-
-      const [cNew, cLearn, cReview] = await Promise.all([
-        countByState([0]),
-        countByState([1, 3]),
-        countByState([2])
-      ]);
-
-      return {
-        new: cNew,
-        learning: cLearn,
-        review: cReview,
-        dueTotal: cReview // Optimized: Dashboard 'Due Items' now strictly represents graduated reviews (State 2)
-      };
-    };
-
-    const [wordCounts, grammarCounts] = await Promise.all([
-      getDetailedCounts('word', config.wordLevel),
-      getDetailedCounts('grammar', config.grammarLevel)
-    ]);
-
-    const { data: recentRecords } = await supabase
-      .from('study_records')
-      .select('date')
-      .eq('user_id', userId)
-      .lt('date', epochDay)
-      .order('date', { ascending: false })
-      .limit(31);
-
-    let streak = 0;
-    let expectedDay = epochDay - 1;
-    if (recentRecords) {
-      for (const r of recentRecords) {
-        if (Number(r.date) === expectedDay) {
-          streak++;
-          expectedDay--;
-        } else break;
-      }
+    let data, error;
+    try {
+      const res = await supabase.rpc('fn_prepare_study_overview', {
+        p_user_id: userId,
+        p_word_level: config.wordLevel || 'N5',
+        p_grammar_level: config.grammarLevel || 'N5',
+        p_word_limit: config.dailyGoal || 20,
+        p_grammar_limit: config.grammarDailyGoal || 5,
+        p_epoch_day: epochDay,
+        p_reset_hour: resetHour,
+        p_is_random: config.isRandom ?? true
+      });
+      data = res.data;
+      error = res.error;
+    } catch (e) {
+      console.error("[StatisticsService] Exception during RPC:", e);
+      throw e;
     }
 
-    const hasTodayActivity = (record?.learned_words || 0) + (record?.reviewed_words || 0) > 0;
-    if (hasTodayActivity) streak++;
+    if (error) {
+      console.error("[StatisticsService.getTodayStats] RPC Error Details:", {
+        code: error.code,
+        message: error.message,
+        details: error.details,
+        hint: error.hint
+      });
+      throw error;
+    }
 
-    const learnedWords = record?.learned_words || 0;
-    const learnedGrammars = record?.learned_grammars || 0;
+    const result = data as any;
 
     return {
-      todayLearnedWords: learnedWords,
-      todayLearnedGrammars: learnedGrammars,
-      todayReviewedWords: record?.reviewed_words || 0,
-      todayReviewedGrammars: record?.reviewed_grammars || 0,
-      dueWords: wordCounts.dueTotal,
-      dueGrammars: grammarCounts.dueTotal,
-      dueNewWords: wordCounts.new,
-      dueLearningWords: wordCounts.learning,
-      dueReviewWords: wordCounts.review,
-      dueNewGrammars: grammarCounts.new,
-      dueLearningGrammars: grammarCounts.learning,
-      dueReviewGrammars: grammarCounts.review,
-      streak,
+      todayLearnedWords: result.todayLearnedWords,
+      todayLearnedGrammars: result.todayLearnedGrammars,
+      todayReviewedWords: result.todayReviewedWords,
+      todayReviewedGrammars: result.todayReviewedGrammars,
+      dueWords: result.dueNewWords + result.dueLearningWords + result.dueReviewWords,
+      dueGrammars: result.dueNewGrammars + result.dueLearningGrammars + result.dueReviewGrammars,
+      dueNewWords: result.dueNewWords,
+      dueLearningWords: result.dueLearningWords,
+      dueReviewWords: result.dueReviewWords,
+      dueNewGrammars: result.dueNewGrammars,
+      dueLearningGrammars: result.dueLearningGrammars,
+      dueReviewGrammars: result.dueReviewGrammars,
+      streak: result.streak,
       dailyGoal: config.dailyGoal,
       grammarDailyGoal: config.grammarDailyGoal,
-      wordGoalProgress: Math.min(100, Math.round((learnedWords / (config.dailyGoal || 1)) * 100)),
-      grammarGoalProgress: Math.min(100, Math.round((learnedGrammars / (config.grammarDailyGoal || 1)) * 100))
+      wordGoalProgress: Math.min(100, Math.round((result.todayLearnedWords / (config.dailyGoal || 1)) * 100)),
+      grammarGoalProgress: Math.min(100, Math.round((result.todayLearnedGrammars / (config.grammarDailyGoal || 1)) * 100))
     };
   },
 
@@ -524,15 +451,13 @@ export const statisticsService = {
    */
   async getWeeklyActivitySummary(userId: string, resetHour: number = 4) {
     const todayEpoch = this.getLearningDay(new Date(), resetHour);
-    const today = new Date(todayEpoch * 86400000);
 
-    // Calculate Monday of current week
-    const dayOfWeek = today.getDay(); // 0 (Sun) to 6 (Sat)
-    const diffToMonday = (dayOfWeek === 0 ? -6 : 1) - dayOfWeek;
-    const mondayEpoch = todayEpoch + diffToMonday;
+    // USER DIRECTIVE: Show Today + 6 Future days (Next 7 days total)
+    // This allows users to see upcoming task density (forecast).
+    const startEpoch = todayEpoch;
 
     const [history, forecast] = await Promise.all([
-      this.getHistoryRange(userId, mondayEpoch, todayEpoch),
+      this.getHistoryRange(userId, startEpoch, startEpoch), // Only today history
       this.getWeekForecast(userId, resetHour)
     ]);
 
@@ -540,7 +465,7 @@ export const statisticsService = {
 
     const result = [];
     for (let i = 0; i < 7; i++) {
-      const currentEpoch = mondayEpoch + i;
+      const currentEpoch = startEpoch + i;
       const h = historyMap.get(currentEpoch);
       const f = forecast[currentEpoch] || 0;
 
@@ -727,6 +652,8 @@ export const statisticsService = {
   },
 
   async getMemoryPanorama(userId: string) {
+    await this.ensureSession();
+    
     const fetchTierCount = async (min: number, max: number | null) => {
       let q = supabase
         .from('user_progress')
@@ -745,10 +672,10 @@ export const statisticsService = {
     };
 
     const [early, developing, mature, expert] = await Promise.all([
-      fetchTierCount(-1, 3),      // 0-3d
-      fetchTierCount(3, 21),     // 3-21d
-      fetchTierCount(21, 60),    // 21-60d
-      fetchTierCount(60, null)   // 60d+
+      fetchTierCount(-1, 3),    // 0-3d (Anki Young - Early)
+      fetchTierCount(3, 21),    // 3-21d (Anki Young - Developing)
+      fetchTierCount(21, 90),   // 21-90d (Anki Mature)
+      fetchTierCount(90, null)  // 90d+ (Anki Expert/Mastery)
     ]);
 
     const total = early + developing + mature + expert;

@@ -6,11 +6,13 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { studyService } from "@/lib/services/studyService";
 import { mixSessionItems } from "@/lib/services/sessionPolicy";
 import { LearnSession } from "./LearnSession";
+import { LearningFinishedContent } from '@/components/learn/LearningFinishedContent';
 import { supabase } from "@/lib/supabase";
 import styles from "./LearnSession.module.css";
 import { ItemType } from "@/types/study";
 import { NemoButton } from "@/components/ui/NemoButton";
 import { settingsService } from "@/lib/services/settingsService";
+import { statisticsService } from "@/lib/services/statisticsService";
 import { SakuraLoader } from "@/components/common/SakuraLoader";
 import { sessionPersistence } from "@/lib/services/sessionPersistence";
 
@@ -34,56 +36,38 @@ function LearnPageContent() {
     }
   }, [user, userLoading, router]);
 
-  // 2. Fetch due items
+  // 2. Fetch due items using the new Unified flow
   const { data: studyData, isLoading: itemsLoading, error } = useQuery({
     queryKey: ["due-items", user?.id, type],
     queryFn: async () => {
-      if (typeof window !== 'undefined') {
-        console.log(`[LearnPage] Initializing session - User: ${user?.id}, Mode: ${type || 'ALL'}`);
-      }
+      if (!user) throw new Error("User not found");
       
       const studyConfig = await settingsService.getStudyConfig();
-      console.log(`[LearnPage] Current Config:`, studyConfig);
+      const dailyGoal = (!type || type === 'word') ? studyConfig.dailyGoal : 0;
+      const grammarDailyGoal = (!type || type === 'grammar') ? studyConfig.grammarDailyGoal : 0;
 
-      if (!user) throw new Error("User not found");
+      // WEB EXCELLENCE: Use the unified prepareSession which handles seeding and fetching in one session-safe flow.
+      const dueItems = await studyService.prepareSession(
+        dailyGoal,
+        grammarDailyGoal,
+        studyConfig.resetHour || 4,
+        type || undefined,
+        50
+      );
 
+      // Handle session persistence (Resuming a previous session)
       const savedSession = sessionPersistence.loadSession('learn');
-      let savedSessionItemsForMode: Awaited<ReturnType<typeof studyService.getDueItems>> = [];
+      let resumeItems: typeof dueItems = [];
+      
       if (savedSession?.ids?.length) {
-        savedSessionItemsForMode = await studyService.getSessionItemsByProgressIds(
+        const savedSessionItems = await studyService.getSessionItemsByProgressIds(
           user.id,
           savedSession.ids,
           type || undefined
         );
-      }
-      const hasReusableSessionForMode = savedSessionItemsForMode.length > 0;
-
-      // 1. Auto-seed only when current user+mode has no reusable saved session.
-      // This avoids both duplicated seeding and cross-user/cross-mode false positives.
-      if (!hasReusableSessionForMode) {
-        const dailyGoal = (!type || type === 'word') ? studyConfig.dailyGoal : 0;
-        const grammarDailyGoal = (!type || type === 'grammar') ? studyConfig.grammarDailyGoal : 0;
-
-        console.log(`[LearnPage] Seeding items... (words: ${dailyGoal}, grammars: ${grammarDailyGoal})`);
-        await studyService.seedDailyNewItems(user.id, dailyGoal, grammarDailyGoal, studyConfig.resetHour || 4, studyConfig.level, studyConfig.isRandom);
-      } else {
-        console.log(`[LearnPage] Skip seeding: reusable session detected for this mode (${savedSessionItemsForMode.length} items).`);
-      }
-      
-      // 2. Fetch due items by current window
-      const dueItems = await studyService.getDueItems(user.id, 50, type || undefined, studyConfig.resetHour || 4);
-
-      // Resume stability: include cards from saved session even if they are
-      // currently outside due/learnAhead window, so re-entering does not drop them.
-      let resumeItems: typeof dueItems = [];
-      if (savedSessionItemsForMode.length > 0) {
-        const dueIdSet = new Set(dueItems.map((item) => item.id));
-        const missingSessionIds = savedSessionItemsForMode
-          .map((item) => item.id)
-          .filter((id) => !dueIdSet.has(id));
-        if (missingSessionIds.length > 0) {
-          resumeItems = await studyService.getSessionItemsByProgressIds(user.id, missingSessionIds, type || undefined);
-        }
+        
+        const dueIdSet = new Set(dueItems.map(i => i.id));
+        resumeItems = savedSessionItems.filter(i => !dueIdSet.has(i.id));
       }
 
       const mergedMap = new Map<string, (typeof dueItems)[number]>();
@@ -95,26 +79,22 @@ function LearnPageContent() {
       });
 
       const items = Array.from(mergedMap.values());
-      console.log(`[LearnPage] Fetched ${dueItems.length} due + ${resumeItems.length} resumed = ${items.length} session items.`);
 
       // 3. Sandwich Mix: interleave new/learning items among mature reviews
-      // matches the new strict definition: Review = State 2
       const reviewItemsForMix = items.filter(i => i.progress.state === 2);
-      const newItemsForMix = items.filter(i => i.progress.state !== 2); // Includes New (0) and Learning (1, 3)
+      const newItemsForMix = items.filter(i => i.progress.state !== 2);
       const mixedItems = mixSessionItems(reviewItemsForMix, newItemsForMix);
-      console.log(`[LearnPage] Sandwich Mix applied: ${reviewItemsForMix.length} reviews + ${newItemsForMix.length} new → ${mixedItems.length} mixed`);
 
-      // 4. Fetch today's stats for progress bar relative tracking
-      const { statisticsService } = await import('@/lib/services/statisticsService');
+      // 4. Fetch today's stats
       const todayStats = await statisticsService.getTodayStats(user.id, studyConfig.resetHour || 4);
 
       return { items: mixedItems, config: studyConfig, todayStats };
     },
     enabled: !!user && !userLoading,
-    staleTime: 0, // Always stale
-    gcTime: 0, // Drop cache on unmount to avoid stale session restore
-    refetchOnWindowFocus: false, // Stop reload on tab switch
-    refetchOnMount: 'always', // Always fetch fresh when entering Learn page
+    staleTime: 0,
+    gcTime: 0,
+    refetchOnWindowFocus: false,
+    refetchOnMount: 'always',
   });
 
   if (userLoading || itemsLoading) {
@@ -135,31 +115,33 @@ function LearnPageContent() {
   const items = studyData?.items;
   const config = studyData?.config;
   const todayStats = studyData?.todayStats;
+  const mode = type || undefined;
+  const itemLabel = type === 'word' ? '单词' : (type === 'grammar' ? '语法' : '学习');
 
-  if (error || !items || items.length === 0) {
-    const isModeSpecific = !!type;
+  if (error) {
     return (
       <div className={styles.container}>
         <div className={styles.emptyState}>
-          <div className={styles.emptyTitle}>
-            {isModeSpecific ? `${type === 'word' ? '单词' : '语法'}任务已完成！✨` : '今日任务已完成！✨'}
-          </div>
-          <p>
-            {isModeSpecific 
-              ? `目前没有待复习的${type === 'word' ? '单词' : '语法'}。` 
-              : '目前没有需要复习的内容。'}
-            <br />
-            您可以去词库里添加一些新词，或者切换到另一种学习模式。
-          </p>
-          <div style={{ marginTop: '2rem', display: 'flex', gap: '1rem', justifyContent: 'center' }}>
-            <NemoButton onClick={() => router.push('/library')} variant="secondary">
-               前往词库
-            </NemoButton>
-            <NemoButton onClick={() => router.push('/')}>
-               回首页
-            </NemoButton>
-          </div>
+          <p className={styles.emptyTitle}>加载失败</p>
+          <p className={styles.loadingText}>无法同步学习队列，请稍后重试。</p>
+          <NemoButton style={{ marginTop: '1rem' }} onClick={() => window.location.reload()}>
+            重试
+          </NemoButton>
         </div>
+      </div>
+    );
+  }
+
+  if (!items || items.length === 0) {
+    const isModeSpecific = !!type;
+    return (
+      <div className={styles.container}>
+        <LearningFinishedContent
+          title={isModeSpecific ? `${itemLabel}任务已完成！✨` : '今日任务达成！'}
+          subtitle={isModeSpecific ? `目前没有待复习的${itemLabel}。` : '坚持就是胜利，明天继续加油'}
+          stats={todayStats}
+          mode={mode}
+        />
       </div>
     );
   }

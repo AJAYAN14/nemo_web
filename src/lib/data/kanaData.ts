@@ -1,4 +1,4 @@
-﻿export interface KanaCell {
+export interface KanaCell {
   hiragana: string;
   katakana: string | null;
   romaji: string;
@@ -19,7 +19,7 @@ export const seionData: (KanaCell | null)[] = [
 ];
 
 export const dakuonData: (KanaCell | null)[] = [
-  { hiragana: "が", katakana: "ガ", romaji: "ga" }, { hiragana: "ぎ", katakana: "ギ", romaji: "gi" }, { hiragana: "ぐ", katakana: "グ", romaji: "gu" }, { hiragana: "げ", katakana: "格", romaji: "ge" }, { hiragana: "ご", katakana: "ゴ", romaji: "go" },
+  { hiragana: "が", katakana: "ガ", romaji: "ga" }, { hiragana: "ぎ", katakana: "ギ", romaji: "gi" }, { hiragana: "ぐ", katakana: "グ", romaji: "gu" }, { hiragana: "げ", katakana: "ゲ", romaji: "ge" }, { hiragana: "ご", katakana: "ゴ", romaji: "go" },
   { hiragana: "ざ", katakana: "ザ", romaji: "za" }, { hiragana: "じ", katakana: "ジ", romaji: "ji" }, { hiragana: "ず", katakana: "ズ", romaji: "zu" }, { hiragana: "ぜ", katakana: "ゼ", romaji: "ze" }, { hiragana: "ぞ", katakana: "ゾ", romaji: "zo" },
   { hiragana: "だ", katakana: "ダ", romaji: "da" }, { hiragana: "ぢ", katakana: "ヂ", romaji: "ji" }, { hiragana: "づ", katakana: "ヅ", romaji: "zu" }, { hiragana: "で", katakana: "デ", romaji: "de" }, { hiragana: "ど", katakana: "ド", romaji: "do" },
   { hiragana: "ば", katakana: "バ", romaji: "ba" }, { hiragana: "び", katakana: "ビ", romaji: "bi" }, { hiragana: "ぶ", katakana: "ブ", romaji: "bu" }, { hiragana: "べ", katakana: "ベ", romaji: "be" }, { hiragana: "ぼ", katakana: "ボ", romaji: "bo" },
@@ -27,24 +27,24 @@ export const dakuonData: (KanaCell | null)[] = [
 ];
 
 export const yoonData: (KanaCell | null)[] = [
-  { hiragana: "きゃ", katakana: "キャ", romaji: "kya" }, { hiragana: "きゅ", katakana: "キュ", romaji: "kyu" }, { hiragana: "きょ", katakana: "キョ", romaji: "kyo" },
-  { hiragana: "ぎゃ", katakana: "ギャ", romaji: "gya" }, { hiragana: "ぎゅ", katakana: "ギュ", romaji: "gyu" }, { hiragana: "ぎょ", katakana: "ギョ", romaji: "gyo" },
-  { hiragana: "しゃ", katakana: "シャ", romaji: "sha" }, { hiragana: "しゅ", katakana: "シュ", romaji: "shu" }, { hiragana: "しょ", katakana: "ショ", romaji: "sho" },
-  { hiragana: "じゃ", katakana: "ジャ", romaji: "ja" }, { hiragana: "じゅ", katakana: "ジュ", romaji: "ju" }, { hiragana: "じょ", katakana: "ジョ", romaji: "jo" },
-  { hiragana: "ちゃ", katakana: "チャ", romaji: "cha" }, { hiragana: "ちゅ", katakana: "チュ", romaji: "chu" }, { hiragana: "ちょ", katakana: "チョ", romaji: "cho" },
-  { hiragana: "にゃ", katakana: "ニャ", romaji: "nya" }, { hiragana: "にゅ", katakana: "ニュ", romaji: "nyu" }, { hiragana: "にょ", katakana: "ニョ", romaji: "nyo" },
-  { hiragana: "ひゃ", katakana: "ヒャ", romaji: "hya" }, { hiragana: "ひゅ", katakana: "ヒュ", romaji: "hyu" }, { hiragana: "ひょ", katakana: "ヒョ", romaji: "hyo" },
-  { hiragana: "びゃ", katakana: "ビャ", romaji: "bya" }, { hiragana: "びゅ", katakana: "ビュ", romaji: "byu" }, { hiragana: "びょ", katakana: "ビョ", romaji: "byo" },
-  { hiragana: "ぴゃ", katakana: "ピゃ", romaji: "pya" }, { hiragana: "ぴゅ", katakana: "ピュ", romaji: "pyu" }, { hiragana: "ぴょ", katakana: "ピョ", romaji: "pyo" },
-  { hiragana: "みゃ", katakana: "ミャ", romaji: "mya" }, { hiragana: "みゅ", katakana: "ミュ", romaji: "myu" }, { hiragana: "みょ", katakana: "ミョ", romaji: "myo" },
-  { hiragana: "りゃ", katakana: "リャ", romaji: "rya" }, { hiragana: "りゅ", katakana: "リュ", romaji: "ryu" }, { hiragana: "りょ", katakana: "リョ", romaji: "ryo" }
+  { hiragana: "きゃ", katakana: "キャ", romaji: "kya" }, null, { hiragana: "きゅ", katakana: "キュ", romaji: "kyu" }, null, { hiragana: "きょ", katakana: "キョ", romaji: "kyo" },
+  { hiragana: "しゃ", katakana: "シャ", romaji: "sha" }, null, { hiragana: "しゅ", katakana: "シュ", romaji: "shu" }, null, { hiragana: "しょ", katakana: "ショ", romaji: "sho" },
+  { hiragana: "ちゃ", katakana: "チャ", romaji: "cha" }, null, { hiragana: "ちゅ", katakana: "チュ", romaji: "chu" }, null, { hiragana: "ちょ", katakana: "チョ", romaji: "cho" },
+  { hiragana: "にゃ", katakana: "ニャ", romaji: "nya" }, null, { hiragana: "にゅ", katakana: "ニュ", romaji: "nyu" }, null, { hiragana: "にょ", katakana: "ニョ", romaji: "nyo" },
+  { hiragana: "ひゃ", katakana: "ヒャ", romaji: "hya" }, null, { hiragana: "ひゅ", katakana: "ヒュ", romaji: "hyu" }, null, { hiragana: "ひょ", katakana: "ヒョ", romaji: "hyo" },
+  { hiragana: "みゃ", katakana: "ミャ", romaji: "mya" }, null, { hiragana: "みゅ", katakana: "ミュ", romaji: "myu" }, null, { hiragana: "みょ", katakana: "ミョ", romaji: "myo" },
+  { hiragana: "りゃ", katakana: "リャ", romaji: "rya" }, null, { hiragana: "りゅ", katakana: "リュ", romaji: "ryu" }, null, { hiragana: "りょ", katakana: "リョ", romaji: "ryo" },
+  { hiragana: "ぎゃ", katakana: "ギャ", romaji: "gya" }, null, { hiragana: "ぎゅ", katakana: "ギュ", romaji: "gyu" }, null, { hiragana: "ぎょ", katakana: "ギョ", romaji: "gyo" },
+  { hiragana: "じゃ", katakana: "ジャ", romaji: "ja" }, null, { hiragana: "じゅ", katakana: "ジュ", romaji: "ju" }, null, { hiragana: "じょ", katakana: "ジョ", romaji: "jo" },
+  { hiragana: "びゃ", katakana: "ビャ", romaji: "bya" }, null, { hiragana: "びゅ", katakana: "ビュ", romaji: "byu" }, null, { hiragana: "びょ", katakana: "ビョ", romaji: "byo" },
+  { hiragana: "ぴゃ", katakana: "ピャ", romaji: "pya" }, null, { hiragana: "ぴゅ", katakana: "ピュ", romaji: "pyu" }, null, { hiragana: "ぴょ", katakana: "ピョ", romaji: "pyo" },
 ];
 
 export const sokuonData: (KanaCell | null)[] = [
-  { hiragana: "っ+k", katakana: "ッ+k", romaji: "kk" }, { hiragana: "っ+s", katakana: "ッ+s", romaji: "ss" }, { hiragana: "っ+t", katakana: "ッ+t", romaji: "tt" }, { hiragana: "っ+p", katakana: "ッ+p", romaji: "pp" }
+  { hiragana: "っか", katakana: "ッカ", romaji: "-kka" }, { hiragana: "っき", katakana: "ッキ", romaji: "-kki" }, { hiragana: "っく", katakana: "ック", romaji: "-kku" }, { hiragana: "っけ", katakana: "ッケ", romaji: "-kke" }, { hiragana: "っこ", katakana: "ッコ", romaji: "-kko" },
+  { hiragana: "っさ", katakana: "ッサ", romaji: "-ssa" }, { hiragana: "っし", katakana: "ッシ", romaji: "-sshi" }, { hiragana: "っす", katakana: "ッス", romaji: "-ssu" }, { hiragana: "っせ", katakana: "ッセ", romaji: "-sse" }, { hiragana: "っそ", katakana: "ッソ", romaji: "-sso" },
 ];
 
 export const chouonData: (KanaCell | null)[] = [
-  { hiragana: "ああ", katakana: "アー", romaji: "aa" }, { hiragana: "いい", katakana: "イー", romaji: "ii" }, { hiragana: "うう", katakana: "ウー", romaji: "uu" }, { hiragana: "ええ", katakana: "エー", romaji: "ee" }, { hiragana: "おお", katakana: "オー", romaji: "oo" },
-  null, null, null, { hiragana: "えい", katakana: null, romaji: "ei" }, { hiragana: "おう", katakana: null, romaji: "ou" }
+  { hiragana: "ああ", katakana: "アー", romaji: "aa" }, { hiragana: "いい", katakana: "イー", romaji: "ii" }, { hiragana: "うう", katakana: "ウー", romaji: "uu" }, { hiragana: "ええ", katakana: "エー", romaji: "ee" }, { hiragana: "おお", katakana: "オー", romaji: "oo" }
 ];

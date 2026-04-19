@@ -10,9 +10,7 @@
   width: 100%;
   background-color: #ffffff;
   border-radius: 26px;
-  /* Optimized for premium feel from Android source */
-  border: 0.5px solid rgba(0, 0, 0, 0.05);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.02);
+  border: 1px solid #E5E7EB;
   padding: 32px 24px;
   position: relative;
   display: flex;
@@ -21,12 +19,12 @@
   justify-content: center;
   min-height: 200px;
   cursor: pointer;
-  transition: transform 0.15s ease, box-shadow 0.15s ease;
+  /* Hover scale handled by parent or just slight translate */
+  transition: transform 0.15s ease;
 }
 
 .questionCard:hover {
   transform: translateY(-2px);
-  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.04);
 }
 
 .badge {
@@ -86,13 +84,23 @@
   font-size: 20px;
   font-weight: 500;
   color: #4F46E5;
-  /* Blue 600 - highlights reading */
-  transition: filter 0.3s ease, opacity 0.3s ease;
+  transition: all 0.15s ease;
+  position: relative;
 }
 
 .hiraganaBlurred {
-  filter: blur(8px);
-  opacity: 0.3;
+  color: transparent;
+  user-select: none;
+}
+.hiraganaBlurred::after {
+  content: '';
+  position: absolute;
+  top: 10%;
+  left: -5%;
+  width: 110%;
+  height: 80%;
+  background-color: #E5E7EB;
+  border-radius: 6px;
 }
 
 .cardTransitionArea {
@@ -130,8 +138,7 @@
   width: 100%;
   background-color: rgba(255, 255, 255, 0.98);
   border-radius: 26px;
-  border: 0.5px solid rgba(0, 0, 0, 0.05);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.02);
+  border: 1px solid #E5E7EB;
   padding: 24px;
   display: flex;
   flex-direction: column;

@@ -65,19 +65,3 @@
 .emptyIcon {
   opacity: 0.3;
 }
-
-@media (prefers-color-scheme: dark) {
-  .card {
-    background: #1c1c1e;
-    border-color: rgba(255, 255, 255, 0.05);
-  }
-  .title {
-    color: #f3f4f6;
-  }
-  .divider {
-    background: rgba(255, 255, 255, 0.05);
-  }
-  .footer {
-    border-top-color: rgba(255, 255, 255, 0.05);
-  }
-}

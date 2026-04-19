@@ -3,13 +3,13 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
-import { ChevronLeft } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { statisticsService } from "@/lib/services/statisticsService";
 import { TodaySummaryCard } from "@/components/statistics/TodaySummaryCard";
 import { CalendarWeekView } from "@/components/statistics/CalendarWeekView";
 import { CalendarDayDetail } from "@/components/statistics/CalendarDayDetail";
 import { SakuraLoader } from "@/components/common/SakuraLoader";
+import StickyHeader from "@/components/common/StickyHeader";
 import calendarStyles from "./calendar.module.css";
 
 function getStoredResetHour(): number {
@@ -77,13 +77,7 @@ export default function LearningCalendarPage() {
 
   return (
     <main className={calendarStyles.container}>
-      <header className={calendarStyles.header}>
-        <button className={calendarStyles.backBtn} onClick={() => router.back()}>
-          <ChevronLeft size={24} />
-        </button>
-        <h1 className={calendarStyles.title}>学习日历</h1>
-        <div className={calendarStyles.headerSpacer} />
-      </header>
+      <StickyHeader title="学习日历" />
 
       <div className={calendarStyles.scrollContent}>
         <section className={calendarStyles.section}>

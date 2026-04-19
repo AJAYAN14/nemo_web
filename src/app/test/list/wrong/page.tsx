@@ -4,7 +4,6 @@ import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { 
-  ChevronLeft, 
   Star, 
   ChevronRight,
   Target,
@@ -12,6 +11,7 @@ import {
 } from 'lucide-react';
 import { testService } from '@/lib/services/testService';
 import styles from './MistakesDashboard.module.css';
+import StickyHeader from "@/components/common/StickyHeader";
 
 export default function MistakesDashboard() {
   const router = useRouter();
@@ -68,12 +68,7 @@ export default function MistakesDashboard() {
 
   return (
     <div className={styles.container}>
-      <header className={styles.header}>
-        <button onClick={() => router.push('/test')} className={styles.backBtn}>
-          <ChevronLeft size={24} />
-        </button>
-        <h1 className={styles.title}>我的错题</h1>
-      </header>
+      <StickyHeader title="我的错题" />
 
       <motion.main 
         className={styles.main}

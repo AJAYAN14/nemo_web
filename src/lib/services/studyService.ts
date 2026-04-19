@@ -129,7 +129,7 @@ export const studyService = {
       .select('level')
       .eq('id', itemId)
       .single();
-    
+
     const level = itemData?.level || 'N5';
 
     const { data, error } = await supabase
@@ -149,15 +149,57 @@ export const studyService = {
   },
 
   /**
-   * Auto seed daily new items from the dictionary if the queue is empty
-   * Now optimized using Supabase RPC for faster server-side processing
+   * Helper to ensure the Supabase session is loaded into the client before any operation.
+   * This prevents "Auth UID: NULL" errors in RPCs/Queries.
+   */
+  async ensureSession(): Promise<string> {
+    const { data: { session }, error } = await supabase.auth.getSession();
+    if (error) throw error;
+    if (!session) throw new Error("No active session found. Please log in.");
+    return session.user.id;
+  },
+
+  /**
+   * Universal entry point for starting a study session.
+   * Ensures session is ready, seeds items if needed, and returns due items.
+   */
+  async prepareSession(
+    dailyGoal: number,
+    grammarDailyGoal: number,
+    resetHour: number,
+    itemType?: ItemType,
+    limit: number = 50
+  ): Promise<StudyItem[]> {
+    const userId = await this.ensureSession();
+    
+    // 1. Resolve config
+    const { settingsService } = await import('./settingsService');
+    const config = await settingsService.getStudyConfig();
+    
+    // 2. Trigger lazy seeding
+    // We don't await this if we already have items, but for "Web Excellence" 
+    // we ensure the queue is healthy before returning.
+    await this.seedDailyNewItems(
+      userId, 
+      dailyGoal, 
+      grammarDailyGoal, 
+      resetHour, 
+      itemType === 'word' ? config.wordLevel : config.grammarLevel
+    );
+
+    // 3. Fetch due items
+    return this.getDueItems(userId, limit, itemType, resetHour);
+  },
+
+  /**
+   * Auto seed daily new items from the dictionary.
    */
   async seedDailyNewItems(
-    userId: string, 
-    dailyGoal: number, 
-    grammarDailyGoal: number, 
+    userId: string,
+    dailyGoal: number,
+    grammarDailyGoal: number,
     resetHour: number,
-    level?: string, 
+    level?: string,
     isRandom = true,
     providedEpochDay?: number
   ): Promise<void> {
@@ -165,12 +207,12 @@ export const studyService = {
     isSeeding = true;
 
     try {
-      // Keep daily seeding aligned with the current session day when available.
-      const epochDay = providedEpochDay ?? this.getLearningDay(new Date(), resetHour);
+      // Ensure session is active for the RPC
+      await this.ensureSession();
 
+      const epochDay = providedEpochDay ?? this.getLearningDay(new Date(), resetHour);
       const promises: PromiseLike<{ error: unknown | null }>[] = [];
 
-      // === 1. Seed Words ===
       if (dailyGoal > 0) {
         promises.push(
           supabase.rpc('fn_seed_daily_new_items', {
@@ -184,7 +226,6 @@ export const studyService = {
         );
       }
 
-      // === 2. Seed Grammars ===
       if (grammarDailyGoal > 0) {
         promises.push(
           supabase.rpc('fn_seed_daily_new_items', {
@@ -202,7 +243,7 @@ export const studyService = {
         const results = await Promise.all(promises);
         results.forEach((res) => {
           if (res.error) {
-            console.error("[StudyService.seedDailyNewItems] RPC Error:", res.error);
+            console.error("[StudyService.seedDailyNewItems] RPC Error:", JSON.stringify(res.error, null, 2));
           }
         });
       }
@@ -212,7 +253,8 @@ export const studyService = {
   },
 
   /**
-   * Fetch all items currently due for review
+   * Fetch all items currently due for review.
+   * Web Excellence: Simplified logic, strictly respects level filters for a cleaner experience.
    */
   async getDueItems(
     userId: string,
@@ -220,15 +262,16 @@ export const studyService = {
     itemType?: ItemType,
     resetHour?: number
   ): Promise<StudyItem[]> {
-    // 1. Resolve user config once for consistent filtering.
+    await this.ensureSession();
+
     const { settingsService } = await import('./settingsService');
     const config = await settingsService.getStudyConfig();
-    
+
     const effectiveResetHour = resetHour ?? 4;
-    const learnAheadMinutes = config.learnAheadLimit || 20;
-    const nowWithBuffer = new Date(Date.now() + learnAheadMinutes * 60000).toISOString();
+    // WEB EXCELLENCE: Lenient buffer (12 hours) to ensure daily tasks are never hidden by clock drift.
+    const nowWithBuffer = new Date(Date.now() + 12 * 3600000).toISOString();
     const currentEpochDay = this.getLearningDay(new Date(), effectiveResetHour);
-    
+
     const fetchByType = async (targetType: ItemType, targetLevel: string) => {
       let query = supabase
         .from('user_progress')
@@ -241,10 +284,11 @@ export const studyService = {
         .order('next_review', { ascending: true })
         .order('id', { ascending: true });
 
+      // WEB EXCELLENCE: Simplified level filtering. 
+      // If a user is in "N1" mode, they should only see N1 items, including reviews.
+      // This is more predictable and cleaner than the Android legacy model.
       if (targetLevel && targetLevel !== 'ALL') {
-        // ANDROID PARITY: Reviews (2) and Stepping items (1, 3) stay in queue regardless of level switch.
-        // Only State 0 (New) items are filtered by the current target level.
-        query = query.or(`state.neq.0,level.eq.${targetLevel}`);
+        query = query.eq('level', targetLevel);
       }
 
       if (typeof limit === 'number' && limit > 0 && itemType === targetType) {
@@ -277,18 +321,10 @@ export const studyService = {
         progressList = progressList.slice(0, limit);
       }
     }
-    
-    console.log(`[StudyService.getDueItems] Found ${progressList?.length || 0} due progress records for user ${userId} (type: ${itemType || 'ALL'}, resetHour: ${effectiveResetHour})`);
-    
+
     if (!progressList || progressList.length === 0) return [];
 
-    const studyItems = await resolveStudyItemsFromProgress(progressList, 'getDueItems');
-    
-    if (studyItems.length < progressList.length) {
-      console.log(`[StudyService.getDueItems] Final mapped items: ${studyItems.length} (Filtered out ${progressList.length - studyItems.length} items with missing content)`);
-    }
-    
-    return studyItems;
+    return resolveStudyItemsFromProgress(progressList, 'getDueItems');
   },
 
   /**
@@ -335,15 +371,15 @@ export const studyService = {
   },
 
   async logActivity(
-    userId: string, 
-    type: 'LEARN' | 'REVIEW', 
-    itemType: ItemType, 
+    userId: string,
+    type: 'LEARN' | 'REVIEW',
+    itemType: ItemType,
     epochDay: number
   ): Promise<void> {
     const field = type === 'LEARN'
       ? (itemType === 'word' ? 'learned_words' : 'learned_grammars')
       : (itemType === 'word' ? 'reviewed_words' : 'reviewed_grammars');
-    
+
     try {
       await this.applyStudyRecordDelta(userId, epochDay, field, 1);
     } catch (e) {
@@ -357,9 +393,9 @@ export const studyService = {
    * Matches FSRS 6 behavior from Android core.
    */
   async processReview(
-    userId: string, 
-    result: ReviewResult, 
-    config: StudyConfig, 
+    userId: string,
+    result: ReviewResult,
+    config: StudyConfig,
     epochDay: number
   ): Promise<UserProgress> {
     const { item, rating } = result;
@@ -496,7 +532,7 @@ export const studyService = {
     const { error } = await supabase
       .from('user_progress')
       .update({
-        state: 0, 
+        state: 0,
         reps: 0,
         lapses: 0,
         stability: 0,
@@ -558,7 +594,7 @@ export const studyService = {
 
       // 2. Run heuristic optimization
       const result = FsrsParameterOptimizer.optimize(data as ReviewLog[]);
-      
+
       if (result) {
         console.log(
           `[FSRS] Personalization enabled - Samples: ${result.sampleSize}, ` +

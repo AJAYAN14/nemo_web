@@ -21,21 +21,20 @@
   color: white;
   font-size: 18px;
   font-weight: 600;
-  border: none;
+  border: 1px solid var(--primary);
   cursor: pointer;
-  transition: all 0.2s;
-  box-shadow: 0 4px 12px rgba(79, 70, 229, 0.2);
+  /* Hover effects handled largely by Framer Motion now, but keep basic transition */
+  transition: transform 0.15s ease, background-color 0.15s ease;
 }
 
 .showAnswerBtn:hover {
   background-color: var(--primary-hover);
-  transform: translateY(-2px);
 }
 
 .showAnswerBtn.blocked {
   background-color: var(--bg-secondary);
   color: var(--text-secondary);
-  box-shadow: none;
+  border: 1px solid #E5E7EB;
   cursor: wait;
   position: relative;
   overflow: hidden;
@@ -79,22 +78,17 @@
   flex: 1;
   height: 64px;
   border-radius: 16px;
-  border: none;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   gap: 4px;
   cursor: pointer;
-  transition: all 0.2s;
   background-color: transparent;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
 }
 
 .ratingBtn:hover {
   filter: brightness(0.95);
-  transform: translateY(-4px);
-  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.12);
 }
 
 .ratingLabel {
@@ -109,23 +103,27 @@
 }
 
 
-/* Colors matching Android specs (Rose, Orange, Blue, Emerald) */
+/* Colors matching Android specs (Rose, Orange, Blue, Emerald) but flat */
 .btn_again {
   background-color: #FFE4E6;
   color: #BE123C;
+  border: 1px solid #FECDD3;
 }
 
 .btn_hard {
   background-color: #FFF7ED;
   color: #EA580C;
+  border: 1px solid #FFEDD5;
 }
 
 .btn_good {
-  background-color: #EFF6FF;
-  color: #2563EB;
+  background-color: #ECFDF5;
+  color: #059669;
+  border: 1px solid #D1FAE5;
 }
 
 .btn_easy {
-  background-color: #ECFDF5;
-  color: #059669;
+  background-color: #EFF6FF;
+  color: #2563EB;
+  border: 1px solid #DBEAFE;
 }

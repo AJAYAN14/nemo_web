@@ -112,9 +112,9 @@ function RatingButton({ type, label, interval, onClick }: {
     <motion.button
       className={clsx(styles.ratingBtn, styles[`btn_${type}`])}
       onClick={onClick}
-      whileTap={{ scale: 0.92, opacity: 0.8 }}
-      whileHover={{ scale: 1.03 }}
-      transition={{ type: "spring", stiffness: 400, damping: 10 }}
+      whileTap={{ scale: 0.94 }}
+      whileHover={{ scale: 1.02, y: -2 }}
+      transition={{ type: "spring", stiffness: 600, damping: 30 }}
     >
       <span className={styles.ratingLabel}>{label}</span>
       <span className={styles.ratingInterval}>{interval}</span>

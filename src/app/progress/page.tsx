@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import {
@@ -24,8 +24,9 @@ import { motion } from "framer-motion";
 import { supabase } from "@/lib/supabase";
 import { statisticsService } from "@/lib/services/statisticsService";
 import { settingsService } from "@/lib/services/settingsService";
+import { useUser } from "@/hooks/useUser";
 import { SakuraLoader } from "@/components/common/SakuraLoader";
-import { MemoryPanorama } from "@/components/statistics/MemoryPanorama";
+import { SettingsCard, SquircleSettingItem } from "@/components/ui/SettingsComponents";
 import styles from "./progress.module.css";
 
 interface DashboardStats {
@@ -53,48 +54,16 @@ interface SummaryPage {
   progressValue?: number;
 }
 
-interface ProgressItemProps {
-  icon: React.ReactElement<{ size?: number }>;
-  color: string;
-  title: string;
-  subtitle: string;
-  count?: number;
-  onClick: () => void;
-}
-
 export default function ProgressPage() {
   const router = useRouter();
-  const [greeting, setGreeting] = useState("");
-  const [currentDate, setCurrentDate] = useState("");
 
-  useEffect(() => {
-    const hour = new Date().getHours();
-    const timeGreeting = hour < 5 ? "夜深了" :
-      hour < 12 ? "早上好" :
-        hour < 18 ? "下午好" : "晚上好";
-    setGreeting(timeGreeting);
+  const { user, isLoading: userLoading } = useUser();
 
-    const formatter = new Intl.DateTimeFormat('zh-CN', { weekday: 'long', month: 'long', day: 'numeric' });
-    setCurrentDate(formatter.format(new Date()));
-  }, []);
-
-  const { data: user, isLoading: userLoading } = useQuery({
-    queryKey: ["current-user"],
-    queryFn: async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      return user;
-    }
-  });
-
-  const { data, isLoading: dataLoading } = useQuery({
+  const { data, isLoading: dataLoading, error, refetch } = useQuery({
     queryKey: ["progress-summary", user?.id],
     queryFn: async () => {
-      const config = await settingsService.getStudyConfig();
-      const [summary, panorama] = await Promise.all([
-        statisticsService.getDashboardSummary(user!.id, config.resetHour || 4),
-        statisticsService.getMemoryPanorama(user!.id)
-      ]);
-      return { ...summary, panorama };
+      // 仅保留核心的 Dashboard Summary，移除之前 AI 乱加的 panorama
+      return await statisticsService.getDashboardSummary(user!.id);
     },
     enabled: !!user,
   });
@@ -109,18 +78,49 @@ export default function ProgressPage() {
     );
   }
 
-  if (!data) return null;
+  // 如果未登录，显示登录引导而不是白屏
+  if (!user) {
+    return (
+      <main className={styles.mainContainer}>
+        <div className={styles.contentWrapper}>
+          <header className={styles.immersiveHeader}>
+            <h1 className={styles.title}>进度</h1>
+          </header>
+          <div className={styles.emptyStateCard}>
+            <p>请登录后查看学习进度</p>
+            <button className={styles.primaryButton} onClick={() => router.push("/login")}>
+              去登录
+            </button>
+          </div>
+        </div>
+      </main>
+    );
+  }
+
+  // 如果加载出错，显示重试按钮
+  if (error || !data) {
+    return (
+      <main className={styles.mainContainer}>
+        <div className={styles.contentWrapper}>
+          <header className={styles.immersiveHeader}>
+            <h1 className={styles.title}>进度</h1>
+          </header>
+          <div className={styles.emptyStateCard}>
+            <p>暂时无法加载进度数据</p>
+            <button className={styles.primaryButton} onClick={() => refetch()}>
+              点击重试
+            </button>
+          </div>
+        </div>
+      </main>
+    );
+  }
 
   return (
     <main className={styles.mainContainer}>
       <div className={styles.contentWrapper}>
-        <header className={styles.header}>
-          <div className={styles.headerGroup}>
-            <h1 className={styles.greeting}>
-              你的成长全景，{user?.user_metadata?.full_name || user?.email?.split('@')[0] || '同学'}
-            </h1>
-            <p className={styles.date}>{currentDate}</p>
-          </div>
+        <header className={styles.immersiveHeader}>
+          <h1 className={styles.title}>进度</h1>
         </header>
 
         <section className={styles.carouselContainer}>
@@ -129,89 +129,95 @@ export default function ProgressPage() {
 
         <section className={styles.section}>
           <h2 className={styles.sectionTitle}>复习与训练</h2>
-          <div className={styles.listCard}>
-            <ProgressItem
-              icon={<RotateCcw />}
-              color="#4F46E5"
+          <SettingsCard>
+            <SquircleSettingItem
+              icon={<RotateCcw size={22} />}
+              iconColor="#4F46E5"
               title="今日到期复习"
-              subtitle="核心复习任务"
+              subtitle={`${data.dueCount} 项任务等待完成`}
               onClick={() => router.push("/review")}
+              trailing={<ChevronRight size={14} opacity={0.4} />}
             />
-            <ProgressItem
-              icon={<Activity />}
-              color="#10B981"
+            <SquircleSettingItem
+              icon={<Activity size={22} />}
+              iconColor="#10B981"
               title="专项训练"
               subtitle="按主题强化练习"
               onClick={() => router.push("/library/specialized?source=practice")}
+              showDivider={false}
+              trailing={<ChevronRight size={14} opacity={0.4} />}
             />
-          </div>
+          </SettingsCard>
         </section>
 
         <section className={styles.section}>
           <h2 className={styles.sectionTitle}>数据与资料</h2>
-          <div className={styles.listCard}>
-            <ProgressItem
-              icon={<PieChart />}
-              color="#6366f1"
+          <SettingsCard>
+            <SquircleSettingItem
+              icon={<PieChart size={22} />}
+              iconColor="#6366f1"
               title="学习日历"
               subtitle="学习计划与每日记录"
               onClick={() => router.push("/progress/calendar")}
+              trailing={<ChevronRight size={14} opacity={0.4} />}
             />
-            <ProgressItem
-              icon={<LineChart />}
-              color="#f43f5e"
+            <SquircleSettingItem
+              icon={<LineChart size={22} />}
+              iconColor="#f43f5e"
               title="今日统计"
               subtitle="查看今日学习明细"
               onClick={() => router.push("/statistics/today")}
+              trailing={<ChevronRight size={14} opacity={0.4} />}
             />
-            <ProgressItem
-              icon={<BarChart3 />}
-              color="#8b5cf6"
+            <SquircleSettingItem
+              icon={<BarChart3 size={22} />}
+              iconColor="#8b5cf6"
               title="历史统计"
               subtitle="查看历史学习数据"
               onClick={() => router.push("/statistics/history")}
+              trailing={<ChevronRight size={14} opacity={0.4} />}
             />
-            <ProgressItem
-              icon={<LayoutList />}
-              color="#10B981"
+            <SquircleSettingItem
+              icon={<LayoutList size={22} />}
+              iconColor="#10B981"
               title="单词列表"
               subtitle="词汇库管理"
               onClick={() => router.push("/library?tab=words")}
+              trailing={<ChevronRight size={14} opacity={0.4} />}
             />
-            <ProgressItem
-              icon={<Database />}
-              color="#0ea5e9"
+            <SquircleSettingItem
+              icon={<Database size={22} />}
+              iconColor="#0ea5e9"
               title="专项词汇"
               subtitle="按分类查看词汇"
               onClick={() => router.push("/library/specialized?source=vocabulary")}
+              trailing={<ChevronRight size={14} opacity={0.4} />}
             />
-            <ProgressItem
-              icon={<Book />}
-              color="#6366f1"
+            <SquircleSettingItem
+              icon={<Book size={22} />}
+              iconColor="#6366f1"
               title="语法列表"
               subtitle="语法知识库"
               onClick={() => router.push("/library?tab=grammars")}
+              trailing={<ChevronRight size={14} opacity={0.4} />}
             />
-            <ProgressItem
-              icon={<Wand2 />}
-              color="#f59e0b"
+            <SquircleSettingItem
+              icon={<Wand2 size={22} />}
+              iconColor="#f59e0b"
               title="复学清单"
               subtitle="难点项召回与复习"
               onClick={() => router.push("/review/leech")}
+              showDivider={false}
+              trailing={<ChevronRight size={14} opacity={0.4} />}
             />
-            <ProgressItem
-              icon={<Grid3X3 />}
-              color="#f43f5e"
-              title="五十音图"
-              subtitle="基础假名发音参考"
-              onClick={() => router.push("/library/kana")}
-            />
-          </div>
+          </SettingsCard>
         </section>
       </div>
     </main>
   );
 }
+
+
 
 function LearningSummaryCarousel({ data }: { data: DashboardStats }) {
   const [index, setIndex] = useState(0);
@@ -383,24 +389,6 @@ function VisualHint({ type, progress }: { type: SummaryPage["visualType"]; progr
           />
         ))}
       </div>
-    </div>
-  );
-}
-
-function ProgressItem({ icon, color, title, subtitle, count, onClick }: ProgressItemProps) {
-  return (
-    <div className={styles.item} onClick={onClick}>
-      <div className={styles.iconWrapper} style={{ backgroundColor: `${color}15`, color }}>
-        {React.cloneElement(icon, { size: 22 })}
-      </div>
-      <div className={styles.itemText}>
-        <div className={styles.itemTop}>
-          <span className={styles.itemTitle}>{title}</span>
-          {typeof count === "number" && <span className={styles.itemCount}>{count}</span>}
-        </div>
-        <span className={styles.itemSubtitle}>{subtitle}</span>
-      </div>
-      <ChevronRight size={14} className={styles.arrow} />
     </div>
   );
 }

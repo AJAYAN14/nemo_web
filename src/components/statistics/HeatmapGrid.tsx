@@ -113,7 +113,7 @@ export function HeatmapGrid({ data, isLoading }: HeatmapGridProps) {
                       styles.dayCell,
                       day && styles[`level${day.level}`]
                     )}
-                    title={day ? `${new Date(day.date * 86400000).toLocaleDateString()}: ${day.count} 项` : undefined}
+                    title={day ? `${new Date(day.date * 86400000).toLocaleDateString()}: ${day.count} 次复习` : undefined}
                   />
                 ))}
               </div>

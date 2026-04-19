@@ -1,55 +1,16 @@
 .container {
   min-height: 100vh;
-  background-color: #F9FAFB;
-  padding: 0;
+  color: #111827;
   display: flex;
   flex-direction: column;
 }
 
-.header {
-  position: sticky;
-  top: 0;
-  z-index: 10;
-  background: white;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-bottom: 1px solid #E5E7EB;
-}
-
-.headerContent {
-  width: 100%;
-  max-width: 600px;
-  padding: 16px 20px;
-  display: flex;
-  align-items: center;
-  gap: 16px;
-}
-
-
-.backBtn {
-  background: none;
-  border: none;
-  padding: 4px;
-  cursor: pointer;
-  color: #1F2937;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.title {
-  font-size: 18px;
-  font-weight: 700;
-  color: #1F2937;
-}
-
 .scrollArea {
   flex: 1;
-  padding: 24px 20px 40px;
   max-width: 600px;
   width: 100%;
   margin: 0 auto;
+  padding: 1.5rem 1.25rem 40px;
 }
 
 
@@ -71,7 +32,7 @@
 .groupCard {
   background: white;
   border: 1px solid #E5E7EB;
-  border-radius: 16px;
+  border-radius: 12px;
   overflow: hidden;
 }
 
@@ -86,7 +47,7 @@
   bottom: 0;
   width: 100%;
   padding: 20px;
-  background: linear-gradient(to top, white 80%, rgba(255, 255, 255, 0));
+  background: linear-gradient(to top, #F4F5F7 80%, rgba(244, 245, 247, 0));
   z-index: 20;
   display: flex;
   justify-content: center;
@@ -102,7 +63,7 @@
   background-color: #4F46E5;
   color: white;
   border: none;
-  border-radius: 16px;
+  border-radius: 12px;
   font-size: 18px;
   font-weight: 700;
   cursor: pointer;

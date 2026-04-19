@@ -3,12 +3,13 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
-import { ChevronLeft, ChevronDown, ChevronUp, Inbox } from "lucide-react";
+import { ChevronDown, ChevronUp, Inbox } from "lucide-react";
 import clsx from "clsx";
 import { supabase } from "@/lib/supabase";
 import { statisticsService } from "@/lib/services/statisticsService";
 import { SakuraLoader } from "@/components/common/SakuraLoader";
 import { DetailedItem } from "@/types/study";
+import StickyHeader from "@/components/common/StickyHeader";
 import styles from "./today.module.css";
 
 const AVATAR_COLORS = ["#3b82f6", "#f59e0b", "#10b981", "#6366f1", "#14b8a6", "#8b5cf6", "#ec4899", "#06b6d4"];
@@ -59,13 +60,7 @@ export default function TodayStatisticsPage() {
 
   return (
     <main className={styles.container}>
-      <header className={styles.header}>
-        <button className={styles.backBtn} onClick={() => router.back()}>
-          <ChevronLeft size={24} />
-        </button>
-        <h1 className={styles.title}>今日学习记录</h1>
-        <div className={styles.headerSpacer} />
-      </header>
+      <StickyHeader title="今日学习记录" />
 
       <div className={styles.scrollContent}>
         <StatisticsSection

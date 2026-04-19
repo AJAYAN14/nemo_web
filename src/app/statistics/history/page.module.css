@@ -1,7 +1,7 @@
 .container {
   min-height: 100vh;
-  padding: 24px 16px;
-  background-color: #f9fafb;
+  padding-bottom: 5rem;
+  color: #111827;
 }
 
 .header {
@@ -32,11 +32,13 @@
 }
 
 .content {
+  max-width: 672px;
+  margin: 0 auto;
+  padding: 1.5rem 1rem;
+  width: 100%;
   display: flex;
   flex-direction: column;
-  gap: 24px;
-  max-width: 800px;
-  margin: 0 auto;
+  gap: 2rem;
 }
 
 .loadingScreen {
@@ -45,26 +47,11 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  background: #f9fafb;
+  gap: 16px;
 }
 
 .loadingText {
-  margin-top: 16px;
-  font-size: 14px;
+  font-size: 0.875rem;
   color: #6b7280;
   font-weight: 600;
-}
-
-@media (prefers-color-scheme: dark) {
-  .container, .loadingScreen {
-    background-color: #000;
-  }
-  .backBtn {
-    background: #1c1c1e;
-    border-color: rgba(255, 255, 255, 0.1);
-    color: #f3f4f6;
-  }
-  .title {
-    color: #f3f4f6;
-  }
 }

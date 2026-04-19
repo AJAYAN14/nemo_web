@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import React, { useMemo } from "react";
 import clsx from "clsx";
@@ -95,7 +95,8 @@ export function CalendarWeekView({
               styles.dayItem,
               day.isSelected && styles.selected,
               day.isToday && styles.today,
-              day.isForecast && styles.forecast
+              day.isForecast && styles.forecast,
+              day.level > 0 && styles[`level${Math.min(day.level, 4)}`]
             )}
           >
             <span className={styles.dayLabel}>{day.label}</span>

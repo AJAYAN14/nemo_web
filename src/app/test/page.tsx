@@ -126,8 +126,8 @@ export default function TestPage() {
   const slides = [
     {
       title: "今日测试",
-      icon: <Bolt size={18} />,
-      accent: "#4F46E5",
+      icon: <Bolt size={22} />,
+      accent: "#FFD600",
       stats: [
         { label: "已测题目", value: `${testStats.todayCount}`, color: "#1F2937" },
         { label: "连续测试", value: `${testStats.todayStreak} 天`, color: "#4F46E5" }
@@ -137,7 +137,7 @@ export default function TestPage() {
     },
     {
       title: "总体统计",
-      icon: <Trophy size={18} />,
+      icon: <Trophy size={22} />,
       accent: "#F97316",
       stats: [
         { label: "累计题目", value: `${testStats.totalCount}`, color: "#1F2937" },
@@ -188,7 +188,7 @@ export default function TestPage() {
                   <span className={styles.overviewTitle}>{slides[activeSlide].title}</span>
                 </div>
                 <button className={styles.calendarBtn}>
-                  <Calendar size={18} />
+                  <Calendar size={22} />
                 </button>
               </div>
               
@@ -235,7 +235,7 @@ export default function TestPage() {
             onClick={() => router.push('/test/list/wrong')}
           >
             <div className={`${styles.iconBox} ${styles.bgRed}`}>
-              <XCircle size={24} />
+              <XCircle size={22} />
             </div>
             <div className={styles.itemInfo}>
               <span className={styles.itemTitle}>我的错题</span>
@@ -247,7 +247,7 @@ export default function TestPage() {
             onClick={() => router.push('/test/list/favorite')}
           >
             <div className={`${styles.iconBox} ${styles.bgOrange}`}>
-              <Star size={24} />
+              <Star size={22} />
             </div>
             <div className={styles.itemInfo}>
               <span className={styles.itemTitle}>我的收藏</span>
@@ -256,7 +256,7 @@ export default function TestPage() {
           </div>
         </div>
       </motion.section>
-
+ 
       {/* --- Basic Drills --- */}
       <motion.section className={styles.section} variants={itemVariants}>
         <h2 className={styles.sectionTitle}>基础练习</h2>
@@ -264,7 +264,7 @@ export default function TestPage() {
           <Link href="/test/settings/multiple_choice" className={styles.cardLink}>
             <div className={styles.gridCard}>
               <div className={`${styles.iconBox} ${styles.bgGreen}`}>
-                <CheckSquare size={24} />
+                <CheckSquare size={22} />
               </div>
               <div className={styles.itemInfo}>
                 <span className={styles.itemTitle}>选择题</span>
@@ -275,7 +275,7 @@ export default function TestPage() {
           <Link href="/test/settings/typing" className={styles.cardLink}>
             <div className={styles.gridCard}>
               <div className={`${styles.iconBox} ${styles.bgIndigo}`}>
-                <Type size={24} />
+                <Type size={22} />
               </div>
               <div className={styles.itemInfo}>
                 <span className={styles.itemTitle}>手打题</span>
@@ -286,7 +286,7 @@ export default function TestPage() {
           <Link href="/test/settings/card_matching" className={styles.cardLink}>
             <div className={styles.gridCard}>
               <div className={`${styles.iconBox} ${styles.bgBlue}`}>
-                <LayoutGrid size={24} />
+                <LayoutGrid size={22} />
               </div>
               <div className={styles.itemInfo}>
                 <span className={styles.itemTitle}>卡片题</span>
@@ -297,7 +297,7 @@ export default function TestPage() {
           <Link href="/test/settings/sorting" className={styles.cardLink}>
             <div className={styles.gridCard}>
               <div className={`${styles.iconBox} ${styles.bgPurple}`}>
-                <Layers size={24} />
+                <Layers size={22} />
               </div>
               <div className={styles.itemInfo}>
                 <span className={styles.itemTitle}>排序题</span>

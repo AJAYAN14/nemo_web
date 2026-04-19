@@ -3,7 +3,7 @@
 import React from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { 
-  ArrowLeft, 
+  ArrowLeft,
   Book, 
   Star, 
   Activity, 
@@ -19,6 +19,7 @@ import {
 import { motion } from "framer-motion";
 import styles from "./Specialized.module.css";
 import { clsx } from "clsx";
+import StickyHeader from "@/components/common/StickyHeader";
 
 interface Category {
   id: string;
@@ -97,19 +98,7 @@ export default function SpecializedClient() {
       animate="visible"
       variants={containerVariants}
     >
-      <header className={styles.header}>
-        <button className={styles.backBtn} onClick={() => router.back()}>
-          <ArrowLeft size={22} />
-        </button>
-        <motion.h1 
-          className={styles.title}
-          key={title}
-          initial={{ opacity: 0, x: -10 }}
-          animate={{ opacity: 1, x: 0 }}
-        >
-          {title}
-        </motion.h1>
-      </header>
+      <StickyHeader title={title} />
 
       {SECTIONS.map((section, idx) => (
         <motion.section 

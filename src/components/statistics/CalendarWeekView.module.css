@@ -1,16 +1,15 @@
 .card {
   background: #ffffff;
-  border-radius: 26px;
-  border: 0.5px solid rgba(0, 0, 0, 0.05);
-  box-shadow: 0 10px 40px -10px rgba(0, 0, 0, 0.04);
-  padding: 20px;
+  border-radius: 24px;
+  border: 1px solid #f1f5f9;
+  padding: 16px;
   width: 100%;
 }
 
 .row {
   display: flex;
   justify-content: space-between;
-  gap: 4px;
+  gap: 8px;
 }
 
 .dayItem {
@@ -58,13 +57,15 @@
 
 /* 1:1 States from Android WeekDayItem */
 .selected {
-  background-color: #0E68FF;
+  background-color: #0E68FF !important;
+  transform: none;
 }
 .selected .dayLabel { color: rgba(255, 255, 255, 0.8); }
 .selected .dayNumber { color: #ffffff; font-weight: 900; }
 
 .today:not(.selected) {
   background-color: rgba(14, 104, 255, 0.1);
+  border: none;
 }
 .today:not(.selected) .dayLabel { color: #0E68FF; }
 .today:not(.selected) .dayNumber { color: #0E68FF; font-weight: 900; }

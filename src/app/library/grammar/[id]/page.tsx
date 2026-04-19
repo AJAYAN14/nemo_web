@@ -2,12 +2,13 @@
 
 import React, { use } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { ChevronLeft } from "lucide-react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { dictionaryService } from "@/lib/services/dictionaryService";
 import { supabase } from "@/lib/supabase";
 import { GrammarDetailHeader } from "@/components/library/GrammarDetailHeader";
 import { UsageSection } from "@/components/library/UsageSection";
+import StickyHeader from "@/components/common/StickyHeader";
 import styles from "./GrammarDetail.module.css";
 
 interface GrammarDetailPageProps {
@@ -16,6 +17,7 @@ interface GrammarDetailPageProps {
 
 export default function GrammarDetailPage({ params }: GrammarDetailPageProps) {
   const { id } = use(params);
+  const router = useRouter();
 
   const { data: grammar, isLoading, error } = useQuery({
     queryKey: ["grammar", id],
@@ -63,19 +65,16 @@ export default function GrammarDetailPage({ params }: GrammarDetailPageProps) {
 
   return (
     <div className={styles.page}>
-      <header className={styles.header}>
-        <Link href="/library" className={styles.backLink}>
-          <ChevronLeft size={20} />
-          <span>返回词库</span>
-        </Link>
-      </header>
+      <StickyHeader 
+        title="语法详情" 
+        onBack={() => router.push('/library')}
+      />
 
       <main className={styles.container}>
         <GrammarDetailHeader 
           id={grammar.id}
           title={grammar.title} 
-          level={grammar.level} 
-          isStudying={!!progress}
+          level={grammar.level}
         />
 
         <div className={styles.content}>

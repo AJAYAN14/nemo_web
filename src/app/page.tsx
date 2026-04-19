@@ -18,6 +18,7 @@ import { motion } from "framer-motion";
 import { ModernCircularProgress } from "@/components/ui/ModernCircularProgress";
 import { statisticsService } from "@/lib/services/statisticsService";
 import { settingsService } from "@/lib/services/settingsService";
+import { studyService } from "@/lib/services/studyService";
 import { MemoryPanorama } from "@/components/statistics/MemoryPanorama";
 import { StudyConfig } from "@/types/study";
 import { SakuraLoader } from "@/components/common/SakuraLoader";
@@ -51,22 +52,38 @@ export default function Home() {
 
   const { user, isLoading: userLoading } = useUser();
 
-  const { data: dashboardData, isLoading: dataLoading } = useQuery({
-    queryKey: ["dashboard-data", user?.id],
+  const { data: config, isLoading: configLoading } = useQuery({
+    queryKey: ["study-config", user?.id],
+    queryFn: () => settingsService.getStudyConfig(),
+    enabled: !!user,
+  });
+
+  // Fetch stats. In Web Excellence, seeding and stats are atomic.
+  const { data: stats, isLoading: statsLoading, error: statsError } = useQuery({
+    queryKey: ["today-stats", user?.id, config?.resetHour, config?.wordLevel, config?.grammarLevel],
     queryFn: async () => {
-      const config = await settingsService.getStudyConfig();
-      const [stats, memoryPanorama] = await Promise.all([
-        statisticsService.getTodayStats(user!.id, config.resetHour || 4),
-        statisticsService.getMemoryPanorama(user!.id)
-      ]);
-      return { stats, memoryPanorama };
+      if (!user || !config) throw new Error("Missing user or config");
+      
+      const epochDay = statisticsService.getLearningDay(new Date(), config.resetHour || 4);
+      console.log("[Dashboard] Syncing overview for Epoch Day:", epochDay);
+
+      // Web Excellence: Atomic fetch-and-seed
+      return statisticsService.getTodayStats(user.id, config.resetHour || 4);
     },
+    enabled: !!user && !!config,
+    staleTime: 60 * 1000,
+    refetchInterval: 5000, // Force update every 5 seconds until tasks appear
+  });
+
+  const { data: memoryPanorama, isLoading: panoramaLoading, error: panoramaError } = useQuery({
+    queryKey: ["memory-panorama", user?.id],
+    queryFn: () => statisticsService.getMemoryPanorama(user!.id),
     enabled: !!user,
   });
 
   const isWordMode = mode === 'word';
-  const stats = dashboardData?.stats;
 
+  // Simplified Task Calculation (Strictly Level Bound)
   const hasTasks = useMemo(() => {
     if (!stats) return false;
     return (isWordMode ? stats.dueNewWords + stats.dueLearningWords + stats.dueReviewWords : stats.dueNewGrammars + stats.dueLearningGrammars + stats.dueReviewGrammars) > 0;
@@ -77,16 +94,19 @@ export default function Home() {
     return isWordMode ? stats.wordGoalProgress : stats.grammarGoalProgress;
   }, [stats, isWordMode]);
 
-  const reviewProgressPercent = useMemo(() => {
+  const taskCompletionPercent = useMemo(() => {
     if (!stats) return 0;
+    const learned = isWordMode ? stats.todayLearnedWords : stats.todayLearnedGrammars;
     const reviewed = isWordMode ? stats.todayReviewedWords : stats.todayReviewedGrammars;
-    const remaining = isWordMode
-      ? (stats.dueLearningWords + stats.dueReviewWords)
-      : (stats.dueLearningGrammars + stats.dueReviewGrammars);
 
-    const total = reviewed + remaining;
+    const finishedTotal = learned + reviewed;
+    const remaining = isWordMode
+      ? (stats.dueNewWords + stats.dueLearningWords + stats.dueReviewWords)
+      : (stats.dueNewGrammars + stats.dueLearningGrammars + stats.dueReviewGrammars);
+
+    const total = finishedTotal + remaining;
     if (total === 0) return 0;
-    return Math.min(100, Math.round((reviewed / total) * 100));
+    return Math.min(100, Math.round((finishedTotal / total) * 100));
   }, [stats, isWordMode]);
 
   const setStudyMode = (newMode: 'word' | 'grammar') => {
@@ -134,11 +154,24 @@ export default function Home() {
           </div>
         </header>
 
-        {(userLoading || dataLoading) ? (
+        {(userLoading || configLoading || statsLoading || panoramaLoading) ? (
           <div className={styles.inlineLoader}>
             <SakuraLoader />
           </div>
-        ) : (!user || !dashboardData || !stats) ? (
+        ) : (statsError || panoramaError) ? (
+          <div className={styles.errorState}>
+            <p style={{ color: '#ef4444', marginBottom: '0.5rem' }}>同步失败</p>
+            <p style={{ fontSize: '0.85rem', opacity: 0.7 }}>
+              {((statsError || panoramaError) as any)?.message || '无法连接到服务器，请检查网络或刷新页面'}
+            </p>
+            <button 
+              onClick={() => window.location.reload()} 
+              style={{ marginTop: '1rem', padding: '0.5rem 1rem', borderRadius: '8px', background: '#6366f1', color: '#fff', border: 'none', cursor: 'pointer' }}
+            >
+              重试
+            </button>
+          </div>
+        ) : (!user || !stats || !memoryPanorama) ? (
           <div className={styles.errorState}>
             <CheckCircle2 size={40} style={{ marginBottom: '1rem', opacity: 0.2 }} />
             <p>准备就绪，正在同步数据...</p>
@@ -149,9 +182,9 @@ export default function Home() {
               {/* Hero Card */}
               <div
                 onClick={() => router.push(`/learn?type=${mode}`)}
-                className={`${styles.heroCard} ${(!hasTasks && (newProgressPercent > 0 || reviewProgressPercent > 0)) ? styles.heroShadowEmerald : styles.heroShadowIndigo}`}
+                className={`${styles.heroCard} ${(!hasTasks && (newProgressPercent > 0 || taskCompletionPercent > 0)) ? styles.heroShadowEmerald : styles.heroShadowIndigo}`}
               >
-                <div className={(!hasTasks && (newProgressPercent > 0 || reviewProgressPercent > 0)) ? styles.heroBgGradientDone : styles.heroBgGradientTasks}></div>
+                <div className={(!hasTasks && (newProgressPercent > 0 || taskCompletionPercent > 0)) ? styles.heroBgGradientDone : styles.heroBgGradientTasks}></div>
                 <div className={styles.heroOverlay}></div>
 
                 <div className={styles.heroBadge}>
@@ -161,10 +194,10 @@ export default function Home() {
 
                 <div className={styles.heroContent}>
                   <h2 className={styles.heroTitle}>
-                    {hasTasks ? '开始学习' : (newProgressPercent > 0 || reviewProgressPercent > 0 ? '今日达成' : '开始学习')}
+                    {hasTasks ? '开始学习' : (newProgressPercent > 0 || taskCompletionPercent > 0 ? '今日达成' : '开始学习')}
                   </h2>
                   <p className={styles.heroSub}>
-                    {hasTasks ? `进入${isWordMode ? '单词' : '语法'}流` : (newProgressPercent > 0 || reviewProgressPercent > 0 ? '保持优秀节奏。' : '选择一个词库开始您的旅程')}
+                    {hasTasks ? `进入${isWordMode ? '单词' : '语法'}流` : (newProgressPercent > 0 || taskCompletionPercent > 0 ? '保持优秀节奏。' : '选择一个词库开始您的旅程')}
                   </p>
 
                   <div className={styles.heroAction}>
@@ -179,7 +212,7 @@ export default function Home() {
               {/* Dual Progress Card */}
               <div className={styles.statCard}>
                 <div className={styles.statCardHeader}>
-                  <p className={styles.statCardTitle}>今日进度</p>
+                  <p className={styles.statCardTitle}>{isWordMode ? '词汇' : '语法'} · 今日进度</p>
                   <div className={styles.statCardIconBadge}>
                     <Flame size={18} color="#6366f1" />
                   </div>
@@ -191,32 +224,32 @@ export default function Home() {
                         value={newProgressPercent}
                         size={94}
                         strokeWidth={12}
-                        color="#4F46E5"
-                        trackColor="rgba(79, 70, 229, 0.08)"
+                        color="#3b82f6" // Anki Blue
+                        trackColor="rgba(59, 130, 246, 0.08)"
                       >
                         <div style={{ fontSize: '1.3rem', fontWeight: 800, color: '#1e293b', letterSpacing: '-0.02em' }}>
                           {Math.round(newProgressPercent)}%
                         </div>
                       </ModernCircularProgress>
                     </div>
-                    <span className={styles.progressLabel}>新词学习</span>
+                    <span className={styles.progressLabel}>新词引入</span>
                   </div>
 
                   <div className={styles.progressItem}>
                     <div style={{ width: '94px', height: '94px' }}>
                       <ModernCircularProgress
-                        value={reviewProgressPercent}
+                        value={taskCompletionPercent}
                         size={94}
                         strokeWidth={12}
-                        color="#10b981"
-                        trackColor="rgba(16, 185, 129, 0.08)"
+                        color="#6366f1" // Main Action Color
+                        trackColor="rgba(99, 102, 241, 0.08)"
                       >
                         <div style={{ fontSize: '1.3rem', fontWeight: 800, color: '#1e293b', letterSpacing: '-0.02em' }}>
-                          {Math.round(reviewProgressPercent)}%
+                          {Math.round(taskCompletionPercent)}%
                         </div>
                       </ModernCircularProgress>
                     </div>
-                    <span className={styles.progressLabel}>复习进度</span>
+                    <span className={styles.progressLabel}>任务清空率</span>
                   </div>
                 </div>
               </div>
@@ -224,15 +257,15 @@ export default function Home() {
               {/* Task Breakdown (Restored) */}
               <div className={styles.statCard}>
                 <div className={styles.statCardHeader}>
-                  <p className={styles.statCardTitle}>任务清单</p>
+                  <p className={styles.statCardTitle}>{isWordMode ? '词汇' : '语法'} · 任务清单</p>
                   <div className={styles.statCardIconBadge} style={{ backgroundColor: 'rgba(16, 185, 129, 0.08)' }}>
                     <CheckCircle2 size={18} color="#10b981" />
                   </div>
                 </div>
                 <div className={styles.taskRowsContainer}>
-                  <TaskRow color="#3B82F6" label="今日新学" count={isWordMode ? stats.dueNewWords : stats.dueNewGrammars} />
-                  <TaskRow color="#EF4444" label="学习中" count={isWordMode ? stats.dueLearningWords : stats.dueLearningGrammars} />
-                  <TaskRow color="#10B981" label="待复习" count={isWordMode ? stats.dueReviewWords : stats.dueReviewGrammars} />
+                  <TaskRow color="#3b82f6" label="新词 (New)" count={isWordMode ? stats.dueNewWords : stats.dueNewGrammars} />
+                  <TaskRow color="#ef4444" label="学习/重学 (Learn)" count={isWordMode ? stats.dueLearningWords : stats.dueLearningGrammars} />
+                  <TaskRow color="#10b981" label="待复习 (Review)" count={isWordMode ? stats.dueReviewWords : stats.dueReviewGrammars} />
                 </div>
               </div>
             </section>
@@ -252,7 +285,7 @@ export default function Home() {
                 </div>
                 <div className={styles.panoramaContent}>
                   <p className={styles.panoramaSub}>全库记忆全景</p>
-                  <MemoryPanorama data={dashboardData.memoryPanorama} />
+                  <MemoryPanorama data={memoryPanorama} />
                 </div>
               </div>
 
@@ -272,18 +305,18 @@ export default function Home() {
                   onClick={() => router.push('/library')}
                 />
                 <NavCard
-                  icon={<Languages size={28} />}
-                  title="语法专区"
-                  desc="结构拆解"
-                  colorTheme={{ bg: '#eef2ff', border: '#e0e7ff', text: '#4f46e5' }}
-                  onClick={() => router.push('/grammar')}
-                />
-                <NavCard
                   icon={<Grid3X3 size={28} />}
                   title="五十音图"
                   desc="基础训练"
                   colorTheme={{ bg: '#fff1f2', border: '#ffe4e6', text: '#e11d48' }}
                   onClick={() => router.push('/library/kana')}
+                />
+                <NavCard
+                  icon={<Languages size={28} />}
+                  title="语法专区"
+                  desc="结构拆解"
+                  colorTheme={{ bg: '#eef2ff', border: '#e0e7ff', text: '#4f46e5' }}
+                  onClick={() => router.push('/grammar')}
                 />
               </div>
             </section>

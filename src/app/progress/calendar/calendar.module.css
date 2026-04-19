@@ -1,8 +1,7 @@
 .container {
   min-height: 100vh;
-  padding-bottom: 40px;
-  max-width: 600px;
-  margin: 0 auto;
+  padding-bottom: 5rem;
+  color: #111827;
 }
 
 .header {
@@ -44,23 +43,28 @@
 }
 
 .scrollContent {
-  padding: 16px 20px;
+  max-width: 600px;
+  margin: 0 auto;
+  padding: 1.25rem 20px;
+  width: 100%;
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 2rem;
 }
 
 .section {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 12px;
 }
 
 .sectionTitle {
-  font-size: 15px;
+  font-size: 0.9rem;
   font-weight: 800;
   color: #64748b;
   padding-left: 4px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
 }
 
 .loadingScreen {

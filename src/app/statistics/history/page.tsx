@@ -3,13 +3,13 @@
 import React from "react";
 import { useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
-import { ChevronLeft } from "lucide-react";
 import styles from "./page.module.css";
 import { statisticsService } from "@/lib/services/statisticsService";
 import { supabase } from "@/lib/supabase";
 import { HistorySummaryCard } from "@/components/statistics/HistorySummaryCard";
 import { CollapsibleHistoryList } from "@/components/statistics/CollapsibleHistoryList";
 import { SakuraLoader } from "@/components/common/SakuraLoader";
+import StickyHeader from "@/components/common/StickyHeader";
 
 export default function HistoricalStatisticsPage() {
   const router = useRouter();
@@ -44,12 +44,7 @@ export default function HistoricalStatisticsPage() {
 
   return (
     <main className={styles.container}>
-      <header className={styles.header}>
-        <button className={styles.backBtn} onClick={() => router.back()}>
-          <ChevronLeft size={24} />
-        </button>
-        <h1 className={styles.title}>历史统计</h1>
-      </header>
+      <StickyHeader title="历史统计" />
 
       <div className={styles.content}>
         {/* Cumulative Summary */}

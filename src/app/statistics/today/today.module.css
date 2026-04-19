@@ -1,57 +1,18 @@
 .container {
   min-height: 100vh;
-  background-color: var(--background-soft);
-  padding-bottom: 40px;
-}
-
-.scrollContent {
-  padding: 16px;
-  max-width: 600px;
-  margin: 0 auto;
-  display: flex;
-  flex-direction: column;
-  gap: 24px;
-}
-
-/* Header */
-.header {
-  height: 60px;
-  display: flex;
-  align-items: center;
-  padding: 0 16px;
-  background: #ffffff;
-  border-bottom: 1px solid #f3f4f6;
-  position: sticky;
-  top: 0;
-  z-index: 10;
-}
-
-.backBtn {
-  width: 40px;
-  height: 40px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 12px;
-  color: #374151;
-  transition: all 0.15s ease;
-}
-
-.backBtn:hover {
-  background-color: #f3f4f6;
-}
-
-.title {
-  position: absolute;
-  left: 50%;
-  transform: translateX(-50%);
-  font-size: 1.125rem;
-  font-weight: 800;
+  padding-bottom: 5rem;
   color: #111827;
 }
 
-.headerSpacer {
-  width: 40px;
+/* Sticky Controls Section */
+.scrollContent {
+  max-width: 672px;
+  margin: 0 auto;
+  padding: 1.5rem 1rem;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
 }
 
 /* Sections */

@@ -59,13 +59,6 @@ export const ModernCircularProgress: React.FC<ModernCircularProgressProps> = ({
   return (
     <div style={{ position: 'relative', width: size, height: size }}>
       <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} style={{ transform: 'rotate(-90deg)' }}>
-        <defs>
-          <filter id={filterId} x="-20%" y="-20%" width="140%" height="140%">
-            <feGaussianBlur stdDeviation="2" result="blur" />
-            <feComposite in="SourceGraphic" in2="blur" operator="over" />
-          </filter>
-        </defs>
-        
         {/* Track Ring */}
         <circle
           cx={center}
@@ -87,7 +80,6 @@ export const ModernCircularProgress: React.FC<ModernCircularProgressProps> = ({
           strokeDasharray={circumference}
           strokeDashoffset={offset}
           strokeLinecap="round"
-          filter={`url(#${filterId})`}
           style={{
             transition: 'stroke 0.3s ease',
           }}

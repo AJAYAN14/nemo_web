@@ -1,8 +1,7 @@
 .card {
   background: #ffffff;
-  border-radius: 26px;
-  border: 0.5px solid rgba(0, 0, 0, 0.05);
-  box-shadow: 0 10px 40px -10px rgba(0, 0, 0, 0.04);
+  border-radius: 24px;
+  border: 1px solid #f1f5f9;
   padding: 20px;
   width: 100%;
 }
@@ -24,9 +23,9 @@
 }
 
 .iconBox {
-  width: 42px;
-  height: 42px;
-  border-radius: 12px;
+  width: 44px;
+  height: 44px;
+  border-radius: 14px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -59,9 +58,9 @@
 .secondary { background-color: rgba(76, 175, 80, 0.1); color: #4CAF50; }
 
 .divider {
-  height: 0.5px;
-  background-color: rgba(0, 0, 0, 0.05);
-  margin-left: 58px; /* Offset to align with content after icon */
+  height: 1px;
+  background-color: #f1f5f9;
+  margin-left: 60px; /* Offset to align with content after icon (44px + 16px) */
 }
 
 /* Empty State */

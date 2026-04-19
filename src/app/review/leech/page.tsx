@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, CheckCircle2 } from "lucide-react";
+import { CheckCircle2 } from "lucide-react";
 import { StudyItem } from "@/types/study";
 import { studyService } from "@/lib/services/studyService";
 import { supabase } from "@/lib/supabase";
@@ -10,6 +10,7 @@ import { LeechCard } from "@/components/library/LeechCard";
 import styles from "./leech.module.css";
 import { motion, AnimatePresence } from "framer-motion";
 import clsx from "clsx";
+import StickyHeader from "@/components/common/StickyHeader";
 
 type TabType = "word" | "grammar";
 
@@ -76,14 +77,7 @@ export default function LeechManagementPage() {
 
   return (
     <div className={styles.container}>
-      <header className={styles.header}>
-        <div className={styles.headerInner}>
-          <button className={styles.backBtn} onClick={() => router.back()}>
-            <ArrowLeft size={22} />
-          </button>
-          <h1 className={styles.title}>复学清单</h1>
-        </div>
-      </header>
+      <StickyHeader title="复学清单" />
 
       {/* 1. Pill Tabs (Android Style) */}
       <section className={styles.tabSection}>

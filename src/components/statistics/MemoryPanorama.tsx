@@ -24,10 +24,10 @@ export function MemoryPanorama({ data }: MemoryPanoramaProps) {
   };
 
   const tiers = [
-    { key: "early", label: "初学", count: early, colorClass: styles.early },
-    { key: "developing", label: "熟悉", count: developing, colorClass: styles.developing },
-    { key: "mature", label: "稳固", count: mature, colorClass: styles.mature },
-    { key: "expert", label: "长效", count: expert, colorClass: styles.expert },
+    { key: "early", label: "初识 (Young)", count: early, colorClass: styles.early },
+    { key: "developing", label: "熟悉 (Young)", count: developing, colorClass: styles.developing },
+    { key: "mature", label: "稳固 (Mature)", count: mature, colorClass: styles.mature },
+    { key: "expert", label: "长效 (Mature)", count: expert, colorClass: styles.expert },
   ];
 
   return (
