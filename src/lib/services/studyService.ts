@@ -414,6 +414,9 @@ export const studyService = {
   ): Promise<UserProgress> {
     const { item, rating } = result;
     const progress = item.progress;
+
+    srsService.applyRuntimeConfig(config);
+
     const action = srsService.evaluateRatingAction(item, rating, config);
     const now = new Date();
     let updateData: Partial<UserProgress>;
@@ -447,19 +450,22 @@ export const studyService = {
       p_rating: rating,
       p_prev_stability: progress.stability,
       p_prev_difficulty: progress.difficulty,
-      p_stability: Number(updateData.stability ?? progress.stability),
-      p_difficulty: Number(updateData.difficulty ?? progress.difficulty),
-      p_elapsed_days: Number(updateData.elapsed_days ?? progress.elapsed_days),
-      p_scheduled_days: Number(updateData.scheduled_days ?? progress.scheduled_days),
-      p_reps: Number(updateData.reps ?? progress.reps),
-      p_lapses: Number(updateData.lapses ?? progress.lapses),
-      p_state: Number(updateData.state ?? progress.state),
-      p_learning_step: Number(updateData.learning_step ?? progress.learning_step ?? 0),
-      p_last_review: (updateData.last_review ?? progress.last_review) || null,
+      p_prev_state: Number(progress.state),
+      p_prev_learning_step: Number(progress.learning_step ?? 0),
+      p_prev_buried_until: Number(progress.buried_until ?? 0),
+      p_next_stability: Number(updateData.stability ?? progress.stability),
+      p_next_difficulty: Number(updateData.difficulty ?? progress.difficulty),
+      p_next_elapsed_days: Number(updateData.elapsed_days ?? progress.elapsed_days),
+      p_next_scheduled_days: Number(updateData.scheduled_days ?? progress.scheduled_days),
+      p_next_reps: Number(updateData.reps ?? progress.reps),
+      p_next_lapses: Number(updateData.lapses ?? progress.lapses),
+      p_next_state: Number(updateData.state ?? progress.state),
+      p_next_learning_step: Number(updateData.learning_step ?? progress.learning_step ?? 0),
+      p_next_last_review: (updateData.last_review ?? progress.last_review) || null,
       p_next_review: (updateData.next_review ?? progress.next_review) || null,
-      p_buried_until: Number(updateData.buried_until ?? progress.buried_until ?? 0),
-      p_epoch_day: epochDay,
-      p_study_field: studyField,
+      p_next_buried_until: Number(updateData.buried_until ?? progress.buried_until ?? 0),
+      p_epoch_day: studyField ? epochDay : null,
+      p_study_field: studyField ?? null,
       p_study_delta: studyField ? 1 : 0,
       p_request_id: requestId,
       p_expected_last_review: progress.last_review
@@ -610,6 +616,7 @@ export const studyService = {
    * Calculate preview intervals (UI representation)
    */
   calculatePreviews(item: StudyItem, config: StudyConfig): Record<number, string> {
+    srsService.applyRuntimeConfig(config);
     return srsService.calculatePreviews(item, config);
   },
 

@@ -76,17 +76,26 @@ export function StudySessionProvider({ userId, initialItems, config, mode, sessi
   const restoredPool = useMemo(() => {
     if (!savedSession || initialItems.length === 0) return null;
     const itemMap = new Map(initialItems.map((item) => [item.id, item]));
-    const steps = savedSession.steps ?? {};
     const dueTimes = savedSession.dueTimes ?? {};
 
     const restored = savedSession.ids
       .map((id) => itemMap.get(id))
       .filter((item): item is StudyItem => !!item)
-      .map((item) => ({
-        ...item,
-        step: Number.isFinite(steps[item.id]) ? steps[item.id] : item.step,
-        dueTime: Number.isFinite(dueTimes[item.id]) ? dueTimes[item.id] : item.dueTime
-      }));
+      .map((item) => {
+        const savedDueTime = dueTimes[item.id];
+
+        // DB is the source of truth for learning_step/due after rating actions.
+        // Keep snapshot dueTime only as a fallback when DB value is not finite.
+        const resolvedDueTime = Number.isFinite(item.dueTime)
+          ? item.dueTime
+          : (Number.isFinite(savedDueTime) ? savedDueTime : 0);
+
+        return {
+          ...item,
+          step: item.step,
+          dueTime: resolvedDueTime
+        };
+      });
 
     return restored.length > 0 ? restored : null;
   }, [savedSession, initialItems]);

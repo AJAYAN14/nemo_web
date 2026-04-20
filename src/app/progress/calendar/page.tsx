@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabase";
 import { statisticsService } from "@/lib/services/statisticsService";
+import { settingsService } from "@/lib/services/settingsService";
 import { studyQueryKeys } from "@/lib/services/studyQueryKeys";
 import { TodaySummaryCard } from "@/components/statistics/TodaySummaryCard";
 import { CalendarWeekView } from "@/components/statistics/CalendarWeekView";
@@ -13,21 +14,8 @@ import { SakuraLoader } from "@/components/common/SakuraLoader";
 import StickyHeader from "@/components/common/StickyHeader";
 import calendarStyles from "./calendar.module.css";
 
-function getStoredResetHour(): number {
-  if (typeof window === "undefined") return 4;
-  try {
-    const stored = localStorage.getItem("nemo_study_settings");
-    if (!stored) return 4;
-    const parsed = JSON.parse(stored) as { resetHour?: number };
-    return typeof parsed.resetHour === "number" ? parsed.resetHour : 4;
-  } catch {
-    return 4;
-  }
-}
-
 export default function LearningCalendarPage() {
   const router = useRouter();
-  const [resetHour] = useState<number>(() => getStoredResetHour());
 
   const { data: user } = useQuery({
     queryKey: ["current-user"],
@@ -38,6 +26,14 @@ export default function LearningCalendarPage() {
       return user;
     }
   });
+
+  const { data: config, isLoading: configLoading } = useQuery({
+    queryKey: ["study-config", user?.id],
+    queryFn: () => settingsService.getStudyConfig(),
+    enabled: !!user,
+  });
+
+  const resetHour = config?.resetHour ?? 4;
 
   const todayEpoch = useMemo(
     () => statisticsService.getLearningDay(new Date(), resetHour),
@@ -52,22 +48,22 @@ export default function LearningCalendarPage() {
   const { data: todayStats, isLoading: todayLoading } = useQuery({
     queryKey: studyQueryKeys.todayStats(user?.id, resetHour),
     queryFn: () => statisticsService.getTodayStats(user!.id, resetHour),
-    enabled: !!user
+    enabled: !!user && !!config
   });
 
   const { data: weekSummary, isLoading: weekLoading } = useQuery({
     queryKey: ["weekly-summary", user?.id, resetHour],
     queryFn: () => statisticsService.getWeeklyActivitySummary(user!.id, resetHour),
-    enabled: !!user
+    enabled: !!user && !!config
   });
 
   const { data: detailedRecord, isLoading: detailedLoading } = useQuery({
     queryKey: ["detailed-record", user?.id, selectedDate, resetHour],
     queryFn: () => statisticsService.getDetailedRecordForDate(user!.id, selectedDate, resetHour),
-    enabled: !!user
+    enabled: !!user && !!config
   });
 
-  if (!user || todayLoading || weekLoading) {
+  if (!user || todayLoading || weekLoading || configLoading) {
     return (
       <div className={calendarStyles.loadingScreen}>
         <SakuraLoader />

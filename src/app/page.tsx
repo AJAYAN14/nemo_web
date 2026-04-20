@@ -24,21 +24,12 @@ import { getSessionDueCounts } from "@/lib/services/studySessionDueCounts";
 import { getLearnSessionKey } from "@/lib/services/studySessionKey";
 import { sessionPersistence } from "@/lib/services/sessionPersistence";
 import { MemoryPanorama } from "@/components/statistics/MemoryPanorama";
-import { StudyConfig } from "@/types/study";
 import { SakuraLoader } from "@/components/common/SakuraLoader";
 import styles from "./page.module.css";
 
 export default function Home() {
   const router = useRouter();
-  const [mode, setMode] = useState<'word' | 'grammar'>(() => {
-    if (typeof window === 'undefined') return 'word';
-    const stored = localStorage.getItem('nemo_study_settings');
-    if (!stored) return 'word';
-    try {
-      const config: StudyConfig = JSON.parse(stored);
-      return config.mode === 'GRAMMAR_ONLY' ? 'grammar' : 'word';
-    } catch { return 'word'; }
-  });
+  const [mode, setMode] = useState<'word' | 'grammar'>('word');
 
   const [greeting, setGreeting] = useState("");
   const [currentDate, setCurrentDate] = useState("");
@@ -77,6 +68,11 @@ export default function Home() {
     queryFn: () => settingsService.getStudyConfig(),
     enabled: !!user,
   });
+
+  useEffect(() => {
+    if (!config) return;
+    setMode(config.mode === 'GRAMMAR_ONLY' ? 'grammar' : 'word');
+  }, [config]);
 
   // Home flow: avoid mutating queue while an in-progress learn session exists.
   const { data: stats, isLoading: statsLoading, error: statsError } = useQuery({
@@ -158,15 +154,10 @@ export default function Home() {
 
   const setStudyMode = (newMode: 'word' | 'grammar') => {
     setMode(newMode);
-    const stored = localStorage.getItem('nemo_study_settings');
-    if (stored) {
-      try {
-        const config = JSON.parse(stored);
-        config.mode = newMode === 'grammar' ? 'GRAMMAR_ONLY' : 'WORD_ONLY';
-        localStorage.setItem('nemo_study_settings', JSON.stringify(config));
-        settingsService.updateStudyConfig(config);
-      } catch (e) { }
-    }
+
+    void settingsService.updateStudyConfig({
+      mode: newMode === 'grammar' ? 'GRAMMAR_ONLY' : 'WORD_ONLY'
+    });
   };
 
   return (

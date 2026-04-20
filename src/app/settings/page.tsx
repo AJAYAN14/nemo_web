@@ -46,13 +46,15 @@ export default function SettingsPage() {
   // SRS Temp States
   const [learningStepsStr, setLearningStepsStr] = useState('');
   const [relearningStepsStr, setRelearningStepsStr] = useState('');
+  const [targetRetentionStr, setTargetRetentionStr] = useState('0.9');
   const [leechThresholdStr, setLeechThresholdStr] = useState('');
   const [leechAction, setLeechAction] = useState<'skip' | 'bury_today'>('skip');
 
-  type SrsConfigFields = Pick<StudyConfig, 'learningSteps' | 'relearningSteps' | 'leechThreshold' | 'leechAction'>;
+  type SrsConfigFields = Pick<StudyConfig, 'learningSteps' | 'relearningSteps' | 'fsrsTargetRetention' | 'leechThreshold' | 'leechAction'>;
   const setSrsTempStates = useCallback((c: SrsConfigFields) => {
     setLearningStepsStr(c.learningSteps.join(' '));
     setRelearningStepsStr(c.relearningSteps.join(' '));
+    setTargetRetentionStr(String(c.fsrsTargetRetention ?? 0.9));
     setLeechThresholdStr(c.leechThreshold.toString());
     setLeechAction(c.leechAction || 'skip');
   }, []);
@@ -372,6 +374,21 @@ export default function SettingsPage() {
                   <p className={styles.inputDescription}>复习时遗忘后的重新激活步骤。</p>
                 </div>
 
+                <div className={styles.inputGroup}>
+                  <label className={styles.inputLabel}>FSRS 目标保留率 (0.7 - 0.99)</label>
+                  <input
+                    type="number"
+                    className={styles.textInput}
+                    value={targetRetentionStr}
+                    onChange={(e) => setTargetRetentionStr(e.target.value)}
+                    step="0.01"
+                    min="0.7"
+                    max="0.99"
+                    placeholder="例如: 0.90"
+                  />
+                  <p className={styles.inputDescription}>数值越高，复习越频繁；越低，间隔更长。</p>
+                </div>
+
                 <div style={{ display: 'flex', gap: '20px' }}>
                   <div className={styles.inputGroup} style={{ flex: 1 }}>
                     <label className={styles.inputLabel}>Leech 阈值 (次)</label>
@@ -401,7 +418,7 @@ export default function SettingsPage() {
               <button 
                 className={clsx(styles.footerBtn, styles.secondaryBtn)} 
                 onClick={() => {
-                  const defaults: SrsConfigFields = { learningSteps: [1, 10], relearningSteps: [1, 10], leechThreshold: 5, leechAction: 'skip' };
+                  const defaults: SrsConfigFields = { learningSteps: [1, 10], relearningSteps: [10], fsrsTargetRetention: 0.9, leechThreshold: 8, leechAction: 'skip' };
                   setSrsTempStates(defaults);
                   saveConfig(defaults);
                 }}
@@ -412,10 +429,16 @@ export default function SettingsPage() {
                 className={clsx(styles.footerBtn, styles.primaryBtn)}
                 onClick={() => {
                   const parseSteps = (str: string) => str.split(/\s+/).map(s => parseInt(s)).filter(n => !isNaN(n));
+                  const parsedRetention = Number(targetRetentionStr);
+                  const safeRetention = Number.isFinite(parsedRetention)
+                    ? Math.min(0.99, Math.max(0.7, parsedRetention))
+                    : 0.9;
+
                   saveConfig({
                     learningSteps: parseSteps(learningStepsStr),
                     relearningSteps: parseSteps(relearningStepsStr),
-                    leechThreshold: parseInt(leechThresholdStr) || 5,
+                    fsrsTargetRetention: safeRetention,
+                    leechThreshold: parseInt(leechThresholdStr) || 8,
                     leechAction: leechAction
                   });
                   setIsSrsModalOpen(false);

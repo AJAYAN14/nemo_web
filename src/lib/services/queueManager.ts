@@ -42,6 +42,41 @@ export function findBestDueIndex(items: StudyItem[], preferredIndex: number): { 
   return { bestIndex, minDueTime };
 }
 
+function findBestDueIndexInCandidates(
+  items: StudyItem[],
+  preferredIndex: number,
+  candidateIndices: number[]
+): { bestIndex: number; minDueTime: number } {
+  if (candidateIndices.length === 0) {
+    return { bestIndex: 0, minDueTime: Number.POSITIVE_INFINITY };
+  }
+
+  let bestIndex = candidateIndices[0];
+  let minDueTime = items[bestIndex]?.dueTime || 0;
+
+  candidateIndices.forEach((index) => {
+    const due = items[index]?.dueTime || 0;
+    if (due < minDueTime) {
+      minDueTime = due;
+      bestIndex = index;
+    } else if (due === minDueTime) {
+      // Keep the same tie-break behavior as findBestDueIndex.
+      if (bestIndex < preferredIndex) {
+        if (index >= preferredIndex || index > bestIndex) {
+          bestIndex = index;
+        }
+      }
+    }
+  });
+
+  return { bestIndex, minDueTime };
+}
+
+function isLearningLike(item: StudyItem): boolean {
+  const state = item.progress?.state;
+  return state === 1 || state === 3 || item.badge === 'RELEARN';
+}
+
 export function selectNextQueueItem(params: QueueSelectionParams): QueueSelectionResult {
   const {
     items,
@@ -57,16 +92,58 @@ export function selectNextQueueItem(params: QueueSelectionParams): QueueSelectio
     return { type: 'EMPTY', index: 0 };
   }
 
-  const { bestIndex, minDueTime } = findBestDueIndex(items, preferredIndex);
+  const intradayNow: number[] = [];
+  const mainQueue: number[] = [];
+  const intradayAhead: number[] = [];
+  const future: number[] = [];
 
-  if (minDueTime > now) {
+  items.forEach((item, index) => {
+    const due = item.dueTime || 0;
+    const learningLike = isLearningLike(item);
+
+    if (learningLike && due <= now) {
+      intradayNow.push(index);
+      return;
+    }
+
+    if (due <= now) {
+      mainQueue.push(index);
+      return;
+    }
+
+    if (learningLike && due - now <= learnAheadMs) {
+      intradayAhead.push(index);
+      return;
+    }
+
+    future.push(index);
+  });
+
+  const selectedCandidates =
+    intradayNow.length > 0
+      ? intradayNow
+      : mainQueue.length > 0
+        ? mainQueue
+        : intradayAhead.length > 0
+          ? intradayAhead
+          : future;
+
+  const { bestIndex, minDueTime } = findBestDueIndexInCandidates(
+    items,
+    preferredIndex,
+    selectedCandidates
+  );
+
+  const isFutureSelection = selectedCandidates === future;
+
+  if (isFutureSelection && minDueTime > now) {
     const hasManualOverride =
       typeof manualResumedAt === 'number' &&
       now - manualResumedAt < manualOverrideWindowMs &&
       typeof manualOverrideIndex === 'number' &&
       bestIndex === manualOverrideIndex;
 
-    if (minDueTime - now > learnAheadMs && !hasManualOverride) {
+    if (!hasManualOverride) {
       return {
         type: 'WAIT',
         index: bestIndex,

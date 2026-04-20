@@ -553,30 +553,45 @@ export const statisticsService = {
     const [
       todayStats,
       trackedCount,
-      masteredCount,
+      matureCountRes,
+      youngReviewCountRes,
+      learningCountRes,
+      relearningCountRes,
+      newCountRes,
       studyRecords
     ] = await Promise.all([
       this.getTodayStats(userId, resetHour),
       supabase.from('user_progress').select('*', { count: 'exact', head: true }).eq('user_id', userId).neq('state', -1),
-      supabase.from('user_progress').select('*', { count: 'exact', head: true }).eq('user_id', userId).eq('state', 2),
+      supabase.from('user_progress').select('*', { count: 'exact', head: true }).eq('user_id', userId).eq('state', 2).gte('stability', 21),
+      supabase.from('user_progress').select('*', { count: 'exact', head: true }).eq('user_id', userId).eq('state', 2).lt('stability', 21),
+      supabase.from('user_progress').select('*', { count: 'exact', head: true }).eq('user_id', userId).eq('state', 1),
+      supabase.from('user_progress').select('*', { count: 'exact', head: true }).eq('user_id', userId).eq('state', 3),
+      supabase.from('user_progress').select('*', { count: 'exact', head: true }).eq('user_id', userId).eq('state', 0),
       supabase.from('study_records').select('date').eq('user_id', userId)
     ]);
 
     const totalWords = trackedCount.count || 0;
-    const totalMastered = masteredCount.count || 0;
+    const matureCount = matureCountRes.count || 0;
+    const youngReviewCount = youngReviewCountRes.count || 0;
+    const learnCount = (learningCountRes.count || 0) + (relearningCountRes.count || 0);
+    const newCount = newCountRes.count || 0;
 
     // Calculate week study days
     const weekRecords = studyRecords.data?.filter(r => Number(r.date) >= mondayEpoch && Number(r.date) <= todayEpoch) || [];
     const weekStudyDays = weekRecords.length;
 
     return {
-      progress: totalWords > 0 ? totalMastered / totalWords : 0,
-      masteredCount: totalMastered,
+      progress: totalWords > 0 ? (matureCount + youngReviewCount) / totalWords : 0,
+      masteredCount: matureCount + youngReviewCount,
+      matureCount,
+      youngCount: youngReviewCount + learnCount, // Anki-style Young = Young Review + Learning
+      learnCount,
+      newCount,
       totalWords,
       todayTotalLearned: todayStats.todayLearnedWords + todayStats.todayLearnedGrammars,
-      todayLearned: todayStats.todayLearnedWords + todayStats.todayLearnedGrammars, // Alias for carousel
+      todayLearned: todayStats.todayLearnedWords + todayStats.todayLearnedGrammars,
       dailyGoal: todayStats.dailyGoal + todayStats.grammarDailyGoal,
-      unmasteredCount: Math.max(0, totalWords - totalMastered),
+      unmasteredCount: newCount,
       studyStreak: todayStats.streak,
       dueCount: todayStats.dueWords + todayStats.dueGrammars,
       totalStudyDays: studyRecords.data?.length || 0,

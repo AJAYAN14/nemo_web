@@ -97,6 +97,51 @@ describe('srsService.evaluateRatingAction - Learning Steps', () => {
     }
   });
 
+  it('uses average of Again/Good delays for Hard on first step', () => {
+    const config: StudyConfig = {
+      ...defaultConfig,
+      learningSteps: [1, 10]
+    };
+
+    const item = makeStudyItem({ state: 1 }, 0); // First learning step
+    const action = srsService.evaluateRatingAction(item, FsrsRating.Hard, config);
+    expect(action.type).toBe('requeue');
+    if (action.type === 'requeue') {
+      expect(action.delayMins).toBe(5.5);
+      expect(action.nextStep).toBe(0);
+    }
+  });
+
+  it('uses 1.5x first-step delay for Hard when only one step exists', () => {
+    const config: StudyConfig = {
+      ...defaultConfig,
+      learningSteps: [10]
+    };
+
+    const item = makeStudyItem({ state: 1 }, 0);
+    const action = srsService.evaluateRatingAction(item, FsrsRating.Hard, config);
+    expect(action.type).toBe('requeue');
+    if (action.type === 'requeue') {
+      expect(action.delayMins).toBe(15);
+      expect(action.nextStep).toBe(0);
+    }
+  });
+
+  it('caps first-step Hard delay increase to at most one day for single-step schedules', () => {
+    const config: StudyConfig = {
+      ...defaultConfig,
+      learningSteps: [5000]
+    };
+
+    const item = makeStudyItem({ state: 1 }, 0);
+    const action = srsService.evaluateRatingAction(item, FsrsRating.Hard, config);
+    expect(action.type).toBe('requeue');
+    if (action.type === 'requeue') {
+      expect(action.delayMins).toBe(5760);
+      expect(action.nextStep).toBe(0);
+    }
+  });
+
   it('advances step on Good', () => {
     const item = makeStudyItem({ state: 1 }, 0); // Learning, at 1st step
     const action = srsService.evaluateRatingAction(item, FsrsRating.Good, defaultConfig);

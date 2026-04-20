@@ -6,6 +6,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabase";
 import styles from "./page.module.css";
 import { statisticsService } from "@/lib/services/statisticsService";
+import { settingsService } from "@/lib/services/settingsService";
 import { HeatmapGrid } from "@/components/statistics/HeatmapGrid";
 import { StatsHighlight } from "@/components/statistics/StatsHighlight";
 import { SakuraLoader } from "@/components/common/SakuraLoader";
@@ -13,17 +14,6 @@ import StickyHeader from "@/components/common/StickyHeader";
 
 export default function HeatmapPage() {
   const router = useRouter();
-  const [resetHour] = useState(() => {
-    if (typeof window === "undefined") return 4;
-    const stored = localStorage.getItem("nemo_study_settings");
-    if (!stored) return 4;
-    try {
-      const config = JSON.parse(stored) as { resetHour?: number };
-      return typeof config.resetHour === "number" ? config.resetHour : 4;
-    } catch {
-      return 4;
-    }
-  });
 
   const { data: user } = useQuery({
     queryKey: ["current-user"],
@@ -33,19 +23,27 @@ export default function HeatmapPage() {
     }
   });
 
+  const { data: config, isLoading: configLoading } = useQuery({
+    queryKey: ["study-config", user?.id],
+    queryFn: () => settingsService.getStudyConfig(),
+    enabled: !!user,
+  });
+
+  const resetHour = config?.resetHour ?? 4;
+
   const { data: heatmapData, isLoading: heatmapLoading } = useQuery({
     queryKey: ["heatmap-data", user?.id],
     queryFn: () => statisticsService.getHeatmapData(user!.id, resetHour),
-    enabled: !!user,
+    enabled: !!user && !!config,
   });
 
   const { data: highlights, isLoading: highlightsLoading } = useQuery({
     queryKey: ["activity-highlights", user?.id],
     queryFn: () => statisticsService.getActivityHighlights(user!.id, resetHour),
-    enabled: !!user,
+    enabled: !!user && !!config,
   });
 
-  if (!user || heatmapLoading || highlightsLoading) {
+  if (!user || heatmapLoading || highlightsLoading || configLoading) {
     return (
       <div className={styles.loadingScreen}>
         <SakuraLoader />

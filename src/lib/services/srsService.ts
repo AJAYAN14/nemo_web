@@ -3,6 +3,38 @@ import { StudyItem, StudyConfig } from '@/types/study';
 import { RatingAction } from '@/types/ratingAction';
 import { buildFsrsDeterministicSeed } from '@/lib/services/fsrsSeed';
 
+const DAY_MINUTES = 24 * 60;
+
+function sanitizeSteps(steps: number[] | undefined, fallback: number[]): number[] {
+  if (!Array.isArray(steps)) return fallback;
+  const cleaned = steps
+    .map((v) => Number(v))
+    .filter((v) => Number.isFinite(v) && v > 0);
+  return cleaned.length > 0 ? cleaned : fallback;
+}
+
+function maybeRoundInDaysMinutes(delayMins: number): number {
+  if (delayMins > DAY_MINUTES) {
+    return Math.max(DAY_MINUTES, Math.round(delayMins / DAY_MINUTES) * DAY_MINUTES);
+  }
+  return delayMins;
+}
+
+function hardDelayMinsForFirstStep(againMins: number, nextMins?: number): number {
+  if (typeof nextMins === 'number' && nextMins > 0) {
+    return maybeRoundInDaysMinutes((againMins + nextMins) / 2);
+  }
+
+  const increased = Math.min(againMins * 1.5, againMins + DAY_MINUTES);
+  return maybeRoundInDaysMinutes(increased);
+}
+
+function clampTargetRetention(value: number | undefined): number {
+  const fallback = 0.9;
+  if (!Number.isFinite(value)) return fallback;
+  return Math.min(0.99, Math.max(0.7, Number(value)));
+}
+
 function getLearningDay(date: Date, resetHour: number): number {
   const localHour = date.getHours();
   const targetDate = new Date(date);
@@ -41,6 +73,10 @@ export const fsrs = new FsrsAlgorithm();
  * Decoupled from Database/Supabase for better testability and performance.
  */
 export const srsService = {
+  applyRuntimeConfig(config: StudyConfig): void {
+    fsrs.setTargetRetention(clampTargetRetention(config.fsrsTargetRetention));
+  },
+
   /**
    * Determine whether a rating should advance a short-term step or graduate.
    * Based on Android's state machine logic.
@@ -49,8 +85,8 @@ export const srsService = {
     const isRelearning = item.progress.state === 3;
     const isReview = item.progress.state === 2;
 
-    const learningSteps = config.learningSteps || [1, 10];
-    const relearningSteps = config.relearningSteps || [10];
+    const learningSteps = sanitizeSteps(config.learningSteps, [1, 10]);
+    const relearningSteps = sanitizeSteps(config.relearningSteps, [10]);
 
     // Leech check: only applies to graduated cards (Review or Relearning).
     if (rating === FsrsRating.Again && (isReview || isRelearning)) {
@@ -86,10 +122,13 @@ export const srsService = {
       // Again always restarts at the first step
       return { type: 'requeue' as const, nextStep: 0, delayMins: steps[0] || 1 };
     } else if (rating === FsrsRating.Hard) {
-      // Hard in learning: Anki experience is usually repeating current step or average of Again/Good.
-      // We implement "repeat current step" for a simple, predictable experience.
-      const delay = steps.length > 1 ? (steps[currentStep] || steps[0]) : (steps[0] * 1.2);
-      return { type: 'requeue' as const, nextStep: currentStep, delayMins: delay };
+      const safeCurrentStep = Math.max(0, currentStep);
+      const currentDelay = steps[safeCurrentStep] || steps[0] || 1;
+      const delay = safeCurrentStep === 0
+        ? hardDelayMinsForFirstStep(currentDelay, steps[1])
+        : currentDelay;
+
+      return { type: 'requeue' as const, nextStep: safeCurrentStep, delayMins: delay };
     } else if (rating === FsrsRating.Good) {
       if (currentStep < steps.length - 1) {
         return { type: 'requeue' as const, nextStep: currentStep + 1, delayMins: steps[currentStep + 1] || 10 };
@@ -106,6 +145,8 @@ export const srsService = {
    * Calculate preview intervals for UI display.
    */
   calculatePreviews(item: StudyItem, config: StudyConfig): Record<number, string> {
+    this.applyRuntimeConfig(config);
+
     const intervals: Record<number, string> = {};
     const resetHour = config.resetHour || 4;
     const now = new Date();
@@ -149,7 +190,12 @@ export const srsService = {
     fsrs.setParameters(params);
   },
 
+  setTargetRetention(targetRetention: number) {
+    fsrs.setTargetRetention(clampTargetRetention(targetRetention));
+  },
+
   resetParameters() {
     fsrs.setParameters(DEFAULT_PARAMETERS);
+    fsrs.setTargetRetention(0.9);
   }
 };

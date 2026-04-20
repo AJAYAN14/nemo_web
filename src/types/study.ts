@@ -117,6 +117,7 @@ export interface StudyConfig {
   // Advanced Algorithm Config
   learningSteps: number[]; // e.g. [1, 10]
   relearningSteps: number[]; // e.g. [1, 10]
+  fsrsTargetRetention?: number; // e.g. 0.9
   learnAheadLimit: number; // minutes
   leechThreshold: number; // consecutive lapses
   leechAction: 'skip' | 'bury_today';

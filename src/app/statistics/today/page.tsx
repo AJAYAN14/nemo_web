@@ -7,6 +7,7 @@ import { ChevronDown, ChevronUp, Inbox } from "lucide-react";
 import clsx from "clsx";
 import { supabase } from "@/lib/supabase";
 import { statisticsService } from "@/lib/services/statisticsService";
+import { settingsService } from "@/lib/services/settingsService";
 import { SakuraLoader } from "@/components/common/SakuraLoader";
 import { DetailedItem } from "@/types/study";
 import StickyHeader from "@/components/common/StickyHeader";
@@ -14,21 +15,8 @@ import styles from "./today.module.css";
 
 const AVATAR_COLORS = ["#3b82f6", "#f59e0b", "#10b981", "#6366f1", "#14b8a6", "#8b5cf6", "#ec4899", "#06b6d4"];
 
-function getStoredResetHour(): number {
-  if (typeof window === "undefined") return 4;
-  try {
-    const stored = localStorage.getItem("nemo_study_settings");
-    if (!stored) return 4;
-    const parsed = JSON.parse(stored) as { resetHour?: number };
-    return typeof parsed.resetHour === "number" ? parsed.resetHour : 4;
-  } catch {
-    return 4;
-  }
-}
-
 export default function TodayStatisticsPage() {
   const router = useRouter();
-  const [resetHour] = useState<number>(() => getStoredResetHour());
 
   const { data: user } = useQuery({
     queryKey: ["current-user"],
@@ -40,13 +28,21 @@ export default function TodayStatisticsPage() {
     }
   });
 
+  const { data: config, isLoading: configLoading } = useQuery({
+    queryKey: ["study-config", user?.id],
+    queryFn: () => settingsService.getStudyConfig(),
+    enabled: !!user,
+  });
+
+  const resetHour = config?.resetHour ?? 4;
+
   const { data: stats, isLoading } = useQuery({
     queryKey: ["today-detailed-stats", user?.id, resetHour],
     queryFn: () => statisticsService.getTodayDetailedStats(user!.id, resetHour),
-    enabled: !!user
+    enabled: !!user && !!config
   });
 
-  if (!user || isLoading) {
+  if (!user || isLoading || configLoading) {
     return (
       <div className={styles.loadingScreen}>
         <SakuraLoader />

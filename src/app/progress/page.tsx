@@ -32,6 +32,10 @@ import styles from "./progress.module.css";
 interface DashboardStats {
   progress: number;
   masteredCount: number;
+  matureCount: number;
+  youngCount: number;
+  learnCount: number;
+  newCount: number;
   totalWords: number;
   todayLearned: number;
   dailyGoal: number;
@@ -239,12 +243,12 @@ function LearningSummaryCarousel({ data }: { data: DashboardStats }) {
     },
     {
       id: "track",
-      title: "学习轨迹",
+      title: "记忆梯度",
       icon: <Activity size={52} />,
       color: "linear-gradient(135deg, #10b981, #059669)",
       main: { label: "连续学习", value: data.studyStreak, unit: "天" },
-      topRight: { label: "累计掌握", value: data.masteredCount, unit: "项" },
-      bottomRight: { label: "待学习", value: data.unmasteredCount, unit: "项" },
+      topRight: { label: "稳固 (Mature)", value: data.matureCount, unit: "项" },
+      bottomRight: { label: "初学 (Young)", value: data.youngCount, unit: "项" },
       visualType: "dots"
     },
     {
@@ -252,9 +256,9 @@ function LearningSummaryCarousel({ data }: { data: DashboardStats }) {
       title: "成长总览",
       icon: <TrendingUp size={52} />,
       color: "linear-gradient(135deg, #f59e0b, #d97706)",
-      main: { label: "总进度", value: Math.round(data.progress * 100), unit: "%" },
-      topRight: { label: "累计学习", value: data.totalStudyDays, unit: "天" },
-      bottomRight: { label: "本周学习", value: data.weekStudyDays, unit: "天" },
+      main: { label: "掌握率", value: Math.round(data.progress * 100), unit: "%" },
+      topRight: { label: "新词 (New)", value: data.newCount, unit: "项" },
+      bottomRight: { label: "累计已学", value: data.masteredCount, unit: "项" },
       visualType: "bars"
     }
   ];

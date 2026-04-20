@@ -2,7 +2,9 @@ import { describe, expect, it } from 'vitest';
 import { findBestDueIndex, selectNextQueueItem } from '@/lib/services/queueManager';
 import { StudyItem } from '@/types/study';
 
-function makeItem(id: string, dueTime: number): StudyItem {
+function makeItem(id: string, dueTime: number, state: number = 0): StudyItem {
+  const badge = state === 0 ? 'NEW' : (state === 1 || state === 3 ? 'RELEARN' : 'REVIEW');
+
   return {
     id,
     type: 'word',
@@ -25,7 +27,7 @@ function makeItem(id: string, dueTime: number): StudyItem {
       scheduled_days: 0,
       reps: 0,
       lapses: 0,
-      state: 0,
+      state,
       learning_step: 0,
       last_review: null,
       next_review: null,
@@ -35,7 +37,7 @@ function makeItem(id: string, dueTime: number): StudyItem {
     },
     step: 0,
     dueTime,
-    badge: 'NEW'
+    badge
   };
 }
 
@@ -81,8 +83,8 @@ describe('selectNextQueueItem', () => {
     }
   });
 
-  it('returns NEXT when best due is within learn-ahead window', () => {
-    const items = [makeItem('1', 1400), makeItem('2', 2000)];
+  it('returns NEXT when a learning item is within learn-ahead window', () => {
+    const items = [makeItem('1', 1400, 1), makeItem('2', 2000, 2)];
     const result = selectNextQueueItem({
       items,
       preferredIndex: 0,
@@ -97,8 +99,54 @@ describe('selectNextQueueItem', () => {
     }
   });
 
+  it('returns WAIT when only non-learning items are in the future', () => {
+    const items = [makeItem('1', 1200, 2), makeItem('2', 2000, 0)];
+    const result = selectNextQueueItem({
+      items,
+      preferredIndex: 0,
+      learnAheadMs: 5000,
+      now: 1000
+    });
+
+    expect(result.type).toBe('WAIT');
+    if (result.type === 'WAIT') {
+      expect(result.index).toBe(0);
+      expect(result.waitingUntil).toBe(1200);
+    }
+  });
+
+  it('prioritizes due learning cards over due main queue cards', () => {
+    const items = [makeItem('1', 900, 2), makeItem('2', 950, 1)];
+    const result = selectNextQueueItem({
+      items,
+      preferredIndex: 0,
+      learnAheadMs: 1000,
+      now: 1000
+    });
+
+    expect(result.type).toBe('NEXT');
+    if (result.type === 'NEXT') {
+      expect(result.index).toBe(1);
+    }
+  });
+
+  it('prioritizes due main queue cards over intraday ahead learning cards', () => {
+    const items = [makeItem('1', 900, 2), makeItem('2', 1400, 1)];
+    const result = selectNextQueueItem({
+      items,
+      preferredIndex: 0,
+      learnAheadMs: 500,
+      now: 1000
+    });
+
+    expect(result.type).toBe('NEXT');
+    if (result.type === 'NEXT') {
+      expect(result.index).toBe(0);
+    }
+  });
+
   it('respects manual override window for selected index', () => {
-    const items = [makeItem('1', 20_000), makeItem('2', 30_000)];
+    const items = [makeItem('1', 20_000, 2), makeItem('2', 30_000, 0)];
     const now = 1000;
 
     const result = selectNextQueueItem({

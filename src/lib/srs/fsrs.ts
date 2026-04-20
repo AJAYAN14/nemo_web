@@ -76,6 +76,18 @@ export class FsrsAlgorithm {
     return [...this.w];
   }
 
+  public setTargetRetention(targetRetention: number) {
+    if (!Number.isFinite(targetRetention)) {
+      return;
+    }
+
+    this.targetRetention = Math.min(0.99, Math.max(0.7, targetRetention));
+  }
+
+  public getTargetRetention(): number {
+    return this.targetRetention;
+  }
+
   // --- Core Formulas ---
 
   private forgettingCurve(elapsedDays: number, stability: number): number {
