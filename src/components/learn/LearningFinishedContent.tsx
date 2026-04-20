@@ -22,7 +22,7 @@ const containerVariants = {
       delayChildren: 0.1,
     }
   }
-};
+} as const;
 
 const itemVariants = {
   hidden: { opacity: 0, y: 15, scale: 0.96 },
@@ -32,7 +32,7 @@ const itemVariants = {
     scale: 1,
     transition: { type: "spring", stiffness: 500, damping: 40 } // Snappy, no wobble
   }
-};
+} as const;
 
 const heroVariants = {
   hidden: { opacity: 0, scale: 0.5 },
@@ -41,7 +41,7 @@ const heroVariants = {
     scale: 1,
     transition: { type: "spring", stiffness: 400, damping: 25 }
   }
-};
+} as const;
 
 export function LearningFinishedContent({
   title = "今日任务达成！",

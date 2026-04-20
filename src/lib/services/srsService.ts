@@ -46,9 +46,6 @@ export const srsService = {
    * Based on Android's state machine logic.
    */
   evaluateRatingAction(item: StudyItem, rating: FsrsRating, config: StudyConfig): RatingAction {
-    // State classification. isRelearning is strictly state===3 only.
-    // The old `state===1 && reps>0` branch was a semantic zombie — buildRequeueUpdate
-    // always sets state=3 on Again, so that path is never reachable in practice.
     const isRelearning = item.progress.state === 3;
     const isReview = item.progress.state === 2;
 
@@ -56,16 +53,20 @@ export const srsService = {
     const relearningSteps = config.relearningSteps || [10];
 
     // Leech check: only applies to graduated cards (Review or Relearning).
-    // New cards in learning steps must NOT trigger leech — they have not yet
-    // been consolidated into long-term memory, so lapses there are expected.
     if (rating === FsrsRating.Again && (isReview || isRelearning)) {
-      const threshold = config.leechThreshold || 5;
-      if ((item.progress.lapses + 1) >= threshold) {
+      const threshold = config.leechThreshold || 8; // Anki default is 8
+      const currentLapses = item.progress.lapses + 1;
+      
+      // Anki Logic: met at threshold, and every half threshold after that, rounding up.
+      const halfThreshold = Math.ceil(threshold / 2);
+      const isLeech = currentLapses >= threshold && (currentLapses - threshold) % halfThreshold === 0;
+
+      if (isLeech) {
         const action = config.leechAction === 'bury_today' ? 'bury_today' : 'skip';
         return { 
           type: 'leech' as const, 
           action,
-          fallbackDelay: relearningSteps[0] || 1
+          fallbackDelay: relearningSteps[0] || 10
         };
       }
     }
@@ -82,9 +83,13 @@ export const srsService = {
     const currentStep = item.step || 0;
 
     if (rating === FsrsRating.Again) {
+      // Again always restarts at the first step
       return { type: 'requeue' as const, nextStep: 0, delayMins: steps[0] || 1 };
     } else if (rating === FsrsRating.Hard) {
-      return { type: 'requeue' as const, nextStep: currentStep, delayMins: steps[currentStep] || 1 };
+      // Hard in learning: Anki experience is usually repeating current step or average of Again/Good.
+      // We implement "repeat current step" for a simple, predictable experience.
+      const delay = steps.length > 1 ? (steps[currentStep] || steps[0]) : (steps[0] * 1.2);
+      return { type: 'requeue' as const, nextStep: currentStep, delayMins: delay };
     } else if (rating === FsrsRating.Good) {
       if (currentStep < steps.length - 1) {
         return { type: 'requeue' as const, nextStep: currentStep + 1, delayMins: steps[currentStep + 1] || 10 };
@@ -92,6 +97,7 @@ export const srsService = {
         return { type: 'graduate' as const };
       }
     } else {
+      // Easy graduates immediately
       return { type: 'graduate' as const };
     }
   },

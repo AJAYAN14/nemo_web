@@ -29,6 +29,7 @@ interface StudySessionContextType {
   isShowAnswerDelayEnabled: boolean;
   showAnswerDelayDuration: number;
   initialTotalCount: number;
+  completedThisSession: number;
   ratingIntervals: Record<number, string>;
   todayStats?: LearningStats;
   
@@ -379,6 +380,7 @@ export function StudySessionProvider({ userId, initialItems, config, mode, sessi
     isShowAnswerDelayEnabled,
     showAnswerDelayDuration,
     initialTotalCount,
+    completedThisSession: state.completedThisSession,
     ratingIntervals,
     todayStats,
     showAnswer: () => dispatch({ type: 'SHOW_ANSWER' }),

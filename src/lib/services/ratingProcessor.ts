@@ -74,6 +74,19 @@ export const ratingProcessor = {
       interval = fsrs.nextIntervalDaysWithFuzz(newState.stability, seed);
     }
 
+    // Determine target state after "graduation" or FSRS update.
+    // If Again: 
+    //   - If it was a Review (2) or Relearning (3) card, it goes to Relearning (3).
+    //   - If it was a New (0) or Learning (1) card, it goes to Learning (1).
+    // If not Again:
+    //   - It graduates/stays in Review (2).
+    let targetState: number;
+    if (rating === FsrsRating.Again) {
+      targetState = (progress.state === 2 || progress.state === 3) ? 3 : 1;
+    } else {
+      targetState = 2;
+    }
+
     return {
       updateData: {
         stability: newState.stability,
@@ -81,7 +94,7 @@ export const ratingProcessor = {
         elapsed_days: Math.round(elapsedDays),
         scheduled_days: Math.round(interval),
         reps: newReps,
-        state: rating === FsrsRating.Again ? 3 : 2,
+        state: targetState,
         last_review: now.toISOString(),
         next_review: new Date(now.getTime() + interval * 24 * 60 * 60 * 1000).toISOString(),
         learning_step: 0,
@@ -116,6 +129,20 @@ export const ratingProcessor = {
       };
     }
 
+    // Determine target state for requeued card.
+    // isAgain logic:
+    //   - Review (2) or Relearning (3) -> Relearning (3).
+    //   - New (0) or Learning (1) -> Learning (1).
+    // non-Again logic:
+    //   - New (0) -> Learning (1).
+    //   - Others -> Keep current state (1, 2, or 3).
+    let targetState: number;
+    if (isAgain) {
+      targetState = (progress.state === 2 || progress.state === 3) ? 3 : 1;
+    } else {
+      targetState = progress.state === 0 ? 1 : progress.state;
+    }
+
     return {
       ...newStateUpdate,
       // Any answered card should carry a review timestamp.
@@ -124,7 +151,7 @@ export const ratingProcessor = {
       next_review: new Date(now.getTime() + action.delayMins * 60000).toISOString(),
       learning_step: action.nextStep,
       reps: progress.reps + 1,
-      state: isAgain ? 3 : (progress.reps === 0 ? 1 : progress.state),
+      state: targetState,
       lapses: isAgain ? progress.lapses + 1 : progress.lapses
     };
   }

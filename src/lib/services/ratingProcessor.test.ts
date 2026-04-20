@@ -126,4 +126,19 @@ describe('ratingProcessor.buildRequeueUpdate', () => {
     expect(result.stability).toBeUndefined();
     expect(result.difficulty).toBeUndefined();
   });
+
+  it('sets state to 1 (Learning) when New item is marked Again', () => {
+    const now = new Date('2026-04-14T00:00:00.000Z');
+    const progress = makeProgress({ reps: 0, state: 0, last_review: null });
+
+    const result = ratingProcessor.buildRequeueUpdate(
+      progress,
+      FsrsRating.Again,
+      { type: 'requeue', nextStep: 0, delayMins: 1 },
+      now
+    );
+
+    expect(result.state).toBe(1);
+    expect(result.lapses).toBe(1);
+  });
 });
