@@ -22,7 +22,7 @@ export function TodaySummaryCard({ stats, isLoading }: TodaySummaryCardProps) {
   const items = [
     { label: '新学单词', value: stats.todayLearnedWords, color: 'primary' },
     { label: '新学语法', value: stats.todayLearnedGrammars, color: 'secondary' },
-    { label: '待复习', value: stats.dueTotal, color: 'orange' },
+    { label: '今日任务', value: stats.dueTotal, color: 'orange' },
     { label: '已完成', value: stats.completedTotal, color: 'indigo' },
   ];
 

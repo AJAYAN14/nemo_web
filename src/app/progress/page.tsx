@@ -137,8 +137,8 @@ export default function ProgressPage() {
             <SquircleSettingItem
               icon={<RotateCcw size={22} />}
               iconColor="#4F46E5"
-              title="今日到期复习"
-              subtitle={`${data.dueCount} 项任务等待完成`}
+              title="今日学习任务"
+              subtitle={`${data.dueCount} 项待处理项`}
               onClick={() => router.push("/review")}
               trailing={<ChevronRight size={14} opacity={0.4} />}
             />

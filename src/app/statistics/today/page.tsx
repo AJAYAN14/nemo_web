@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
@@ -51,6 +51,11 @@ export default function TodayStatisticsPage() {
     );
   }
 
+  const wordLearned = stats!.words.learned.length;
+  const wordReviewed = stats!.words.reviewed.length;
+  const grammarLearned = stats!.grammars.learned.length;
+  const grammarReviewed = stats!.grammars.reviewed.length;
+
   const allWords = [...stats!.words.learned, ...stats!.words.reviewed];
   const allGrammars = [...stats!.grammars.learned, ...stats!.grammars.reviewed];
 
@@ -60,14 +65,14 @@ export default function TodayStatisticsPage() {
 
       <div className={styles.scrollContent}>
         <StatisticsSection
-          title={`单词（${allWords.length}）`}
+          title={`单词 (新学 ${wordLearned} · 复习 ${wordReviewed})`}
           items={allWords}
           emptyMessage="今日还没有单词学习记录"
           onItemClick={(id) => router.push(`/library/word/${id}`)}
         />
 
         <StatisticsSection
-          title={`语法（${allGrammars.length}）`}
+          title={`语法 (新学 ${grammarLearned} · 复习 ${grammarReviewed})`}
           items={allGrammars}
           emptyMessage="今日还没有语法学习记录"
           onItemClick={(id) => router.push(`/library/grammar/${id}`)}
