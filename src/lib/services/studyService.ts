@@ -434,6 +434,9 @@ export const studyService = {
       updateData = ratingProcessor.buildRequeueUpdate(progress, rating, action, now, config.resetHour || 4);
     }
 
+    const isFirstReviewToday = !progress.last_review || 
+      this.getLearningDay(new Date(progress.last_review), config.resetHour || 4) < epochDay;
+
     const studyField = getCompletionStudyDeltaField(item.type, progress.state, progress.reps, action.type);
 
     const requestId = requestIdOverride ?? (
@@ -466,7 +469,7 @@ export const studyService = {
       p_next_buried_until: Number(updateData.buried_until ?? progress.buried_until ?? 0),
       p_epoch_day: studyField ? epochDay : null,
       p_study_field: studyField ?? null,
-      p_study_delta: studyField ? 1 : 0,
+      p_study_delta: (studyField && isFirstReviewToday) ? 1 : 0,
       p_request_id: requestId,
       p_expected_last_review: progress.last_review
     };
