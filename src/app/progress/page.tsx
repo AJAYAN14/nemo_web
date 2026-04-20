@@ -54,7 +54,7 @@ interface SummaryPage {
   main: { label: string; value: number; unit: string };
   topRight: { label: string; value: number; unit: string };
   bottomRight: { label: string; value: number; unit: string };
-  visualType: "progress" | "dots" | "bars";
+  visualType: "progress" | "bars";
   progressValue?: number;
 }
 
@@ -231,33 +231,23 @@ function LearningSummaryCarousel({ data }: { data: DashboardStats }) {
 
   const pages: SummaryPage[] = [
     {
-      id: "overview",
-      title: "今日概览",
+      id: "today",
+      title: "今日表现",
       icon: <Calendar size={52} />,
       color: "linear-gradient(135deg, #6366f1, #4f46e5)",
       main: { label: "今日已学", value: data.todayLearned, unit: "项" },
-      topRight: { label: "待复习", value: data.dueCount, unit: "项" },
+      topRight: { label: "连续学习", value: data.studyStreak, unit: "天" },
       bottomRight: { label: "目标完成", value: completionRate, unit: "%" },
       visualType: "progress",
       progressValue: Math.min(1, data.todayLearned / safeGoal)
     },
     {
-      id: "track",
-      title: "记忆梯度",
-      icon: <Activity size={52} />,
-      color: "linear-gradient(135deg, #10b981, #059669)",
-      main: { label: "连续学习", value: data.studyStreak, unit: "天" },
-      topRight: { label: "稳固 (Mature)", value: data.matureCount, unit: "项" },
-      bottomRight: { label: "初学 (Young)", value: data.youngCount, unit: "项" },
-      visualType: "dots"
-    },
-    {
-      id: "growth",
-      title: "成长总览",
+      id: "mastery",
+      title: "学情总览",
       icon: <TrendingUp size={52} />,
-      color: "linear-gradient(135deg, #f59e0b, #d97706)",
+      color: "linear-gradient(135deg, #10b981, #059669)",
       main: { label: "掌握率", value: Math.round(data.progress * 100), unit: "%" },
-      topRight: { label: "新词 (New)", value: data.newCount, unit: "项" },
+      topRight: { label: "稳固项", value: data.matureCount, unit: "项" },
       bottomRight: { label: "累计已学", value: data.masteredCount, unit: "项" },
       visualType: "bars"
     }
@@ -362,23 +352,6 @@ function VisualHint({ type, progress }: { type: SummaryPage["visualType"]; progr
     );
   }
 
-  if (type === "dots") {
-    return (
-      <div className={styles.visualHint}>
-        <div className={styles.dotsRow}>
-          {[...Array(7)].map((_, i) => (
-            <motion.div
-              key={i}
-              initial={{ opacity: 0, scale: 0.8 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ delay: i * 0.05 }}
-              className={clsx(styles.dot, i < 5 && styles.dotActive)}
-            />
-          ))}
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className={styles.visualHint}>

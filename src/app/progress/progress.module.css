@@ -238,21 +238,6 @@
   background: white;
 }
 
-.dotsRow {
-  display: flex;
-  gap: 6px;
-}
-
-.dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 3px;
-  background: rgba(255, 255, 255, 0.2);
-}
-
-.dotActive {
-  background: white;
-}
 
 .barsRow {
   display: flex;
