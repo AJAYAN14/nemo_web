@@ -29,8 +29,17 @@ export interface QueryInvalidator {
   invalidateQueries: (filters: { queryKey: readonly unknown[] }) => unknown;
 }
 
-export function invalidateStudyQueries(queryClient: QueryInvalidator): void {
+export interface InvalidateStudyQueriesOptions {
+  includeDueItems?: boolean;
+}
+
+export function invalidateStudyQueries(
+  queryClient: QueryInvalidator,
+  options: InvalidateStudyQueriesOptions = {}
+): void {
   queryClient.invalidateQueries({ queryKey: studyQueryKeys.todayStatsPrefix });
-  queryClient.invalidateQueries({ queryKey: studyQueryKeys.dueItemsPrefix });
+  if (options.includeDueItems) {
+    queryClient.invalidateQueries({ queryKey: studyQueryKeys.dueItemsPrefix });
+  }
   queryClient.invalidateQueries({ queryKey: studyQueryKeys.reviewSessionItemsPrefix });
 }

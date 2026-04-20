@@ -47,6 +47,33 @@ function LearnPageContent() {
       const dailyGoal = (!type || type === 'word') ? studyConfig.dailyGoal : 0;
       const grammarDailyGoal = (!type || type === 'grammar') ? studyConfig.grammarDailyGoal : 0;
 
+      // Resume in-progress session first to keep queue stable on re-entry.
+      // This avoids auto top-up seeding from expanding the queue mid-session.
+      const savedSession = sessionPersistence.loadSession('learn');
+      if (savedSession?.ids?.length) {
+        const savedSessionItems = await studyService.getSessionItemsByProgressIds(
+          user.id,
+          savedSession.ids,
+          type || undefined
+        );
+
+        if (savedSessionItems.length > 0) {
+          const savedOrder = new Map(savedSession.ids.map((id, index) => [id, index]));
+          savedSessionItems.sort((a, b) => {
+            const aIndex = savedOrder.get(a.id) ?? Number.MAX_SAFE_INTEGER;
+            const bIndex = savedOrder.get(b.id) ?? Number.MAX_SAFE_INTEGER;
+            return aIndex - bIndex;
+          });
+
+          const reviewItemsForMix = savedSessionItems.filter(i => i.progress.state === 2);
+          const newItemsForMix = savedSessionItems.filter(i => i.progress.state !== 2);
+          const mixedItems = mixSessionItems(reviewItemsForMix, newItemsForMix);
+          const todayStats = await statisticsService.getTodayStats(user.id, studyConfig.resetHour || 4);
+
+          return { items: mixedItems, config: studyConfig, todayStats };
+        }
+      }
+
       // WEB EXCELLENCE: Use the unified prepareSession which handles seeding and fetching in one session-safe flow.
       const dueItems = await studyService.prepareSession(
         dailyGoal,
@@ -56,34 +83,9 @@ function LearnPageContent() {
         50
       );
 
-      // Handle session persistence (Resuming a previous session)
-      const savedSession = sessionPersistence.loadSession('learn');
-      let resumeItems: typeof dueItems = [];
-      
-      if (savedSession?.ids?.length) {
-        const savedSessionItems = await studyService.getSessionItemsByProgressIds(
-          user.id,
-          savedSession.ids,
-          type || undefined
-        );
-        
-        const dueIdSet = new Set(dueItems.map(i => i.id));
-        resumeItems = savedSessionItems.filter(i => !dueIdSet.has(i.id));
-      }
-
-      const mergedMap = new Map<string, (typeof dueItems)[number]>();
-      dueItems.forEach((item) => mergedMap.set(item.id, item));
-      resumeItems.forEach((item) => {
-        if (!mergedMap.has(item.id)) {
-          mergedMap.set(item.id, item);
-        }
-      });
-
-      const items = Array.from(mergedMap.values());
-
       // 3. Sandwich Mix: interleave new/learning items among mature reviews
-      const reviewItemsForMix = items.filter(i => i.progress.state === 2);
-      const newItemsForMix = items.filter(i => i.progress.state !== 2);
+      const reviewItemsForMix = dueItems.filter(i => i.progress.state === 2);
+      const newItemsForMix = dueItems.filter(i => i.progress.state !== 2);
       const mixedItems = mixSessionItems(reviewItemsForMix, newItemsForMix);
 
       // 4. Fetch today's stats

@@ -20,6 +20,8 @@ import { statisticsService } from "@/lib/services/statisticsService";
 import { settingsService } from "@/lib/services/settingsService";
 import { studyService } from "@/lib/services/studyService";
 import { studyQueryKeys } from "@/lib/services/studyQueryKeys";
+import { getSessionDueCounts } from "@/lib/services/studySessionDueCounts";
+import { sessionPersistence } from "@/lib/services/sessionPersistence";
 import { MemoryPanorama } from "@/components/statistics/MemoryPanorama";
 import { StudyConfig } from "@/types/study";
 import { SakuraLoader } from "@/components/common/SakuraLoader";
@@ -59,7 +61,7 @@ export default function Home() {
     enabled: !!user,
   });
 
-  // Home flow: seed queue explicitly, then read stats.
+  // Home flow: avoid mutating queue while an in-progress learn session exists.
   const { data: stats, isLoading: statsLoading, error: statsError } = useQuery({
     queryKey: studyQueryKeys.todayStats(user?.id, config?.resetHour, config?.wordLevel, config?.grammarLevel),
     queryFn: async () => {
@@ -68,20 +70,46 @@ export default function Home() {
       const epochDay = statisticsService.getLearningDay(new Date(), config.resetHour || 4);
       console.log("[Dashboard] Syncing overview for Epoch Day:", epochDay);
 
-      await studyService.seedDailyNewItems(
-        user.id,
-        config.dailyGoal || 20,
-        config.grammarDailyGoal || 5,
-        config.resetHour || 4,
-        {
-          wordLevel: config.wordLevel || 'ALL',
-          grammarLevel: config.grammarLevel || 'ALL'
-        },
-        config.isRandom ?? true,
-        epochDay
-      );
+      const savedSession = sessionPersistence.loadSession('learn');
+      const hasActiveLearnSession = !!savedSession?.ids?.length;
 
-      return statisticsService.getTodayStats(user.id, config.resetHour || 4);
+      if (!hasActiveLearnSession) {
+        await studyService.seedDailyNewItems(
+          user.id,
+          config.dailyGoal || 20,
+          config.grammarDailyGoal || 5,
+          config.resetHour || 4,
+          {
+            wordLevel: config.wordLevel || 'ALL',
+            grammarLevel: config.grammarLevel || 'ALL'
+          },
+          config.isRandom ?? true,
+          epochDay
+        );
+      }
+
+      const baseStats = await statisticsService.getTodayStats(user.id, config.resetHour || 4);
+
+      if (!hasActiveLearnSession || !savedSession?.ids?.length) {
+        return baseStats;
+      }
+
+      const sessionItems = await studyService.getSessionItemsByProgressIds(user.id, savedSession.ids);
+      if (sessionItems.length === 0) {
+        return baseStats;
+      }
+
+      const sessionCounts = getSessionDueCounts(sessionItems);
+
+      return {
+        ...baseStats,
+        dueNewWords: sessionCounts.hasWordItems ? sessionCounts.dueNewWords : baseStats.dueNewWords,
+        dueLearningWords: sessionCounts.hasWordItems ? sessionCounts.dueLearningWords : baseStats.dueLearningWords,
+        dueReviewWords: sessionCounts.hasWordItems ? sessionCounts.dueReviewWords : baseStats.dueReviewWords,
+        dueNewGrammars: sessionCounts.hasGrammarItems ? sessionCounts.dueNewGrammars : baseStats.dueNewGrammars,
+        dueLearningGrammars: sessionCounts.hasGrammarItems ? sessionCounts.dueLearningGrammars : baseStats.dueLearningGrammars,
+        dueReviewGrammars: sessionCounts.hasGrammarItems ? sessionCounts.dueReviewGrammars : baseStats.dueReviewGrammars,
+      };
     },
     enabled: !!user && !!config,
     // Safety net: always re-sync counters when returning to Home/focus.

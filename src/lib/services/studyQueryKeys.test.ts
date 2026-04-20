@@ -17,10 +17,20 @@ describe('studyQueryKeys', () => {
     expect(studyQueryKeys.reviewSessionItems('user-1')).toEqual(['review-session-items', 'user-1']);
   });
 
-  it('invalidates all study-related query prefixes', () => {
+  it('invalidates today-stats and review-session-items by default', () => {
     const invalidateQueries = vi.fn();
 
     invalidateStudyQueries({ invalidateQueries });
+
+    expect(invalidateQueries).toHaveBeenCalledTimes(2);
+    expect(invalidateQueries).toHaveBeenNthCalledWith(1, { queryKey: ['today-stats'] });
+    expect(invalidateQueries).toHaveBeenNthCalledWith(2, { queryKey: ['review-session-items'] });
+  });
+
+  it('can include due-items invalidation when explicitly requested', () => {
+    const invalidateQueries = vi.fn();
+
+    invalidateStudyQueries({ invalidateQueries }, { includeDueItems: true });
 
     expect(invalidateQueries).toHaveBeenCalledTimes(3);
     expect(invalidateQueries).toHaveBeenNthCalledWith(1, { queryKey: ['today-stats'] });
