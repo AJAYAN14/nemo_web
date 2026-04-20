@@ -122,9 +122,12 @@ export default function Home() {
   });
 
   const { data: memoryPanorama, isLoading: panoramaLoading, error: panoramaError } = useQuery({
-    queryKey: ["memory-panorama", user?.id],
+    queryKey: studyQueryKeys.memoryPanorama(user?.id),
     queryFn: () => statisticsService.getMemoryPanorama(user!.id),
     enabled: !!user,
+    staleTime: 0,
+    refetchOnMount: 'always',
+    refetchOnWindowFocus: true,
   });
 
   // Simplified Task Calculation (Strictly Level Bound)

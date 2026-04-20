@@ -12,19 +12,21 @@ describe('studyQueryKeys', () => {
     ]);
   });
 
-  it('builds due-items and review-session query keys', () => {
+  it('builds due-items, review-session, and memory-panorama query keys', () => {
     expect(studyQueryKeys.dueItems('user-1', 'word')).toEqual(['due-items', 'user-1', 'word']);
     expect(studyQueryKeys.reviewSessionItems('user-1')).toEqual(['review-session-items', 'user-1']);
+    expect(studyQueryKeys.memoryPanorama('user-1')).toEqual(['memory-panorama', 'user-1']);
   });
 
-  it('invalidates today-stats and review-session-items by default', () => {
+  it('invalidates today-stats, review-session-items, and memory-panorama by default', () => {
     const invalidateQueries = vi.fn();
 
     invalidateStudyQueries({ invalidateQueries });
 
-    expect(invalidateQueries).toHaveBeenCalledTimes(2);
+    expect(invalidateQueries).toHaveBeenCalledTimes(3);
     expect(invalidateQueries).toHaveBeenNthCalledWith(1, { queryKey: ['today-stats'] });
     expect(invalidateQueries).toHaveBeenNthCalledWith(2, { queryKey: ['review-session-items'] });
+    expect(invalidateQueries).toHaveBeenNthCalledWith(3, { queryKey: ['memory-panorama'] });
   });
 
   it('can include due-items invalidation when explicitly requested', () => {
@@ -32,9 +34,10 @@ describe('studyQueryKeys', () => {
 
     invalidateStudyQueries({ invalidateQueries }, { includeDueItems: true });
 
-    expect(invalidateQueries).toHaveBeenCalledTimes(3);
+    expect(invalidateQueries).toHaveBeenCalledTimes(4);
     expect(invalidateQueries).toHaveBeenNthCalledWith(1, { queryKey: ['today-stats'] });
     expect(invalidateQueries).toHaveBeenNthCalledWith(2, { queryKey: ['due-items'] });
     expect(invalidateQueries).toHaveBeenNthCalledWith(3, { queryKey: ['review-session-items'] });
+    expect(invalidateQueries).toHaveBeenNthCalledWith(4, { queryKey: ['memory-panorama'] });
   });
 });
