@@ -3,6 +3,7 @@ import { StudyItem, StudyConfig } from '@/types/study';
 import { studyService } from '@/lib/services/studyService';
 import { srsService } from '@/lib/services/srsService';
 import { sessionPersistence } from '@/lib/services/sessionPersistence';
+import { invalidateStudyQueries } from '@/lib/services/studyQueryKeys';
 import { FsrsRating } from '@/lib/srs/fsrs';
 import { findBestDueIndex, selectNextQueueItem } from '@/lib/services/queueManager';
 import { DEFAULT_LEARN_AHEAD_MINUTES, RATING_DEBOUNCE_MS } from '@/lib/services/studyConstants';
@@ -48,9 +49,7 @@ export function useReviewSession(
   const queryClient = useQueryClient();
 
   const invalidateStudyCaches = useCallback(() => {
-    queryClient.invalidateQueries({ queryKey: ['today-stats'] });
-    queryClient.invalidateQueries({ queryKey: ['due-items'] });
-    queryClient.invalidateQueries({ queryKey: ['review-session-items'] });
+    invalidateStudyQueries(queryClient);
   }, [queryClient]);
 
   // Attempt to restore a saved session (survives page refresh)

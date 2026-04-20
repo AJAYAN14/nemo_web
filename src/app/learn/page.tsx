@@ -13,6 +13,7 @@ import { ItemType } from "@/types/study";
 import { NemoButton } from "@/components/ui/NemoButton";
 import { settingsService } from "@/lib/services/settingsService";
 import { statisticsService } from "@/lib/services/statisticsService";
+import { studyQueryKeys } from "@/lib/services/studyQueryKeys";
 import { SakuraLoader } from "@/components/common/SakuraLoader";
 import { sessionPersistence } from "@/lib/services/sessionPersistence";
 
@@ -38,7 +39,7 @@ function LearnPageContent() {
 
   // 2. Fetch due items using the new Unified flow
   const { data: studyData, isLoading: itemsLoading, error } = useQuery({
-    queryKey: ["due-items", user?.id, type],
+    queryKey: studyQueryKeys.dueItems(user?.id, type),
     queryFn: async () => {
       if (!user) throw new Error("User not found");
       

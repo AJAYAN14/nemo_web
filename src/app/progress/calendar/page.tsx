@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabase";
 import { statisticsService } from "@/lib/services/statisticsService";
+import { studyQueryKeys } from "@/lib/services/studyQueryKeys";
 import { TodaySummaryCard } from "@/components/statistics/TodaySummaryCard";
 import { CalendarWeekView } from "@/components/statistics/CalendarWeekView";
 import { CalendarDayDetail } from "@/components/statistics/CalendarDayDetail";
@@ -49,7 +50,7 @@ export default function LearningCalendarPage() {
   }, [todayEpoch]);
 
   const { data: todayStats, isLoading: todayLoading } = useQuery({
-    queryKey: ["today-stats", user?.id, resetHour],
+    queryKey: studyQueryKeys.todayStats(user?.id, resetHour),
     queryFn: () => statisticsService.getTodayStats(user!.id, resetHour),
     enabled: !!user
   });

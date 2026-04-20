@@ -19,6 +19,7 @@ import { ModernCircularProgress } from "@/components/ui/ModernCircularProgress";
 import { statisticsService } from "@/lib/services/statisticsService";
 import { settingsService } from "@/lib/services/settingsService";
 import { studyService } from "@/lib/services/studyService";
+import { studyQueryKeys } from "@/lib/services/studyQueryKeys";
 import { MemoryPanorama } from "@/components/statistics/MemoryPanorama";
 import { StudyConfig } from "@/types/study";
 import { SakuraLoader } from "@/components/common/SakuraLoader";
@@ -60,7 +61,7 @@ export default function Home() {
 
   // Home flow: seed queue explicitly, then read stats.
   const { data: stats, isLoading: statsLoading, error: statsError } = useQuery({
-    queryKey: ["today-stats", user?.id, config?.resetHour, config?.wordLevel, config?.grammarLevel],
+    queryKey: studyQueryKeys.todayStats(user?.id, config?.resetHour, config?.wordLevel, config?.grammarLevel),
     queryFn: async () => {
       if (!user || !config) throw new Error("Missing user or config");
       
@@ -83,8 +84,10 @@ export default function Home() {
       return statisticsService.getTodayStats(user.id, config.resetHour || 4);
     },
     enabled: !!user && !!config,
-    staleTime: 60 * 1000,
-    refetchOnWindowFocus: false,
+    // Safety net: always re-sync counters when returning to Home/focus.
+    staleTime: 0,
+    refetchOnMount: 'always',
+    refetchOnWindowFocus: true,
   });
 
   const { data: memoryPanorama, isLoading: panoramaLoading, error: panoramaError } = useQuery({

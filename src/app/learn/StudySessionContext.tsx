@@ -17,6 +17,7 @@ import { sessionPersistence } from '@/lib/services/sessionPersistence';
 import { studyService } from '@/lib/services/studyService';
 import { selectNextQueueItem } from '@/lib/services/queueManager';
 import { DEFAULT_LEARN_AHEAD_MINUTES, MANUAL_OVERRIDE_WINDOW_MS, RATING_DEBOUNCE_MS } from '@/lib/services/studyConstants';
+import { invalidateStudyQueries } from '@/lib/services/studyQueryKeys';
 import { settingsService } from '@/lib/services/settingsService';
 
 interface StudySessionContextType {
@@ -124,9 +125,7 @@ export function StudySessionProvider({ userId, initialItems, config, mode, today
   const lastRatingTime = useRef(0);
 
   const invalidateStudyCaches = useCallback(() => {
-    queryClient.invalidateQueries({ queryKey: ['today-stats'] });
-    queryClient.invalidateQueries({ queryKey: ['due-items'] });
-    queryClient.invalidateQueries({ queryKey: ['review-session-items'] });
+    invalidateStudyQueries(queryClient);
   }, [queryClient]);
 
   const persist = useCallback((nextPool: StudyItem[], nextIndex: number, nextCompleted: number, nextWaiting: number | null) => {

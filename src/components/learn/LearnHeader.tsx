@@ -16,6 +16,7 @@ import clsx from 'clsx';
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu';
 import styles from './LearnHeader.module.css';
 import { useStudySession } from '@/app/learn/StudySessionContext';
+import { getQueueStateCounters } from '@/lib/services/studyCounters';
 
 interface LearnHeaderProps {
   onShowRatingGuide: () => void;
@@ -49,9 +50,7 @@ export function LearnHeader({
   const isDisabled = status === 'Processing';
 
   // Always derive chips from in-session queue state so numbers update instantly.
-  const newCount = wordList.filter((item) => item.progress.state === 0).length;
-  const relearnCount = wordList.filter((item) => item.progress.state === 1 || item.progress.state === 3).length;
-  const reviewCount = wordList.filter((item) => item.progress.state === 2).length;
+  const { newCount, relearnCount, reviewCount } = getQueueStateCounters(wordList);
 
   const canGoPrev = currentIndex > 0 && !isAnswerShown;
   const canGoNext = currentIndex < totalCount - 1 && !isAnswerShown;

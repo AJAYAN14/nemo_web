@@ -6,6 +6,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Sparkles } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { studyService } from "@/lib/services/studyService";
+import { studyQueryKeys } from "@/lib/services/studyQueryKeys";
 import { settingsService } from "@/lib/services/settingsService";
 import { sessionPersistence } from "@/lib/services/sessionPersistence";
 import { ReviewSession } from "./ReviewSession";
@@ -31,7 +32,7 @@ export default function ReviewPage() {
   }, [user, userLoading, router]);
 
   const { data: reviewData, isLoading: dataLoading, isFetching } = useQuery({
-    queryKey: ["review-session-items", user?.id],
+    queryKey: studyQueryKeys.reviewSessionItems(user?.id),
     queryFn: async () => {
       if (!user) throw new Error("User not found");
 
