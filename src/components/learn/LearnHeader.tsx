@@ -40,8 +40,7 @@ export function LearnHeader({
     isShowAnswerDelayEnabled,
     toggleShowAnswerDelay,
     showAnswerDelayDuration,
-    cycleDelayDuration,
-    todayStats: stats
+    cycleDelayDuration
   } = useStudySession();
 
   const { wordList, currentIndex, status } = state;
@@ -49,20 +48,10 @@ export function LearnHeader({
   const isAnswerShown = state.isCardFlipped;
   const isDisabled = status === 'Processing';
 
-  const isWordMode = mode === 'Word';
-  
-  // Use global stats if provided, fallback to current batch counts
-  const newCount = stats 
-    ? (isWordMode ? stats.dueNewWords : stats.dueNewGrammars)
-    : wordList.filter(i => i.badge === 'NEW').length;
-    
-  const relearnCount = stats
-    ? (isWordMode ? stats.dueLearningWords : stats.dueLearningGrammars)
-    : wordList.filter(i => i.badge === 'RELEARN').length;
-    
-  const reviewCount = stats
-    ? (isWordMode ? stats.dueReviewWords : stats.dueReviewGrammars)
-    : wordList.filter(i => i.badge === 'REVIEW').length;
+  // Always derive chips from in-session queue state so numbers update instantly.
+  const newCount = wordList.filter((item) => item.progress.state === 0).length;
+  const relearnCount = wordList.filter((item) => item.progress.state === 1 || item.progress.state === 3).length;
+  const reviewCount = wordList.filter((item) => item.progress.state === 2).length;
 
   const canGoPrev = currentIndex > 0 && !isAnswerShown;
   const canGoNext = currentIndex < totalCount - 1 && !isAnswerShown;

@@ -45,6 +45,7 @@ function LearnSessionUI({ todayStats }: { todayStats: LearningStats | undefined 
     hideUndoHint,
     ratingIntervals,
     initialTotalCount,
+    completedThisSession,
     setSyncConflictItem
   } = useStudySession();
 
@@ -66,12 +67,14 @@ function LearnSessionUI({ todayStats }: { todayStats: LearningStats | undefined 
   }, [currentIndex, isShowAnswerDelayEnabled, isCardFlipped, showAnswerDelayDuration]);
 
   // Stable progress calculation
-  const currentDailyStat = useMemo(() => {
+  const baselineDailyStat = useMemo(() => {
     if (mode === 'Word') {
       return (todayStats?.todayLearnedWords || 0) + (todayStats?.todayReviewedWords || 0);
     }
     return (todayStats?.todayLearnedGrammars || 0) + (todayStats?.todayReviewedGrammars || 0);
   }, [mode, todayStats]);
+
+  const currentDailyStat = baselineDailyStat + completedThisSession;
 
   const progressPercent = useMemo(() => {
     if (initialTotalCount <= 0) return 0;

@@ -6,6 +6,7 @@ import { sessionPersistence } from '@/lib/services/sessionPersistence';
 import { FsrsRating } from '@/lib/srs/fsrs';
 import { findBestDueIndex, selectNextQueueItem } from '@/lib/services/queueManager';
 import { DEFAULT_LEARN_AHEAD_MINUTES, RATING_DEBOUNCE_MS } from '@/lib/services/studyConstants';
+import { useQueryClient } from '@tanstack/react-query';
 
 /**
  * Review Session Status (matches Android ReviewStatus)
@@ -44,6 +45,14 @@ export function useReviewSession(
   initialItems: StudyItem[],
   config: StudyConfig
 ) {
+  const queryClient = useQueryClient();
+
+  const invalidateStudyCaches = useCallback(() => {
+    queryClient.invalidateQueries({ queryKey: ['today-stats'] });
+    queryClient.invalidateQueries({ queryKey: ['due-items'] });
+    queryClient.invalidateQueries({ queryKey: ['review-session-items'] });
+  }, [queryClient]);
+
   // Attempt to restore a saved session (survives page refresh)
   const savedSession = useMemo(() => sessionPersistence.loadSession('review'), []);
   const restoredPool = useMemo(() => {
@@ -287,6 +296,7 @@ export function useReviewSession(
 
       selectNext(nextPool, currentIndexAtRating, nextCompleted);
       setShowUndoHint(true);
+      invalidateStudyCaches();
     } catch (e) {
       console.error('[ReviewSession] processReview failed, rollback to snapshot:', e);
 
@@ -303,7 +313,7 @@ export function useReviewSession(
       setIsAnswerShown(false);
       setIsProcessing(false);
     }
-  }, [currentItem, isProcessing, pool, currentIndex, userId, config, selectNext, completedThisSession, status, waitingUntil]);
+  }, [currentItem, isProcessing, pool, currentIndex, userId, config, selectNext, completedThisSession, status, waitingUntil, invalidateStudyCaches]);
 
   // --- Undo ---
   const undo = useCallback(async () => {
@@ -361,6 +371,7 @@ export function useReviewSession(
       }
 
       setShowUndoHint(false);
+      invalidateStudyCaches();
       console.log(`[ReviewSession] Undo successful for ${itemToUndo.id}`);
     } catch (e) {
       console.error('[ReviewSession] Undo sync failed:', e);
@@ -373,7 +384,7 @@ export function useReviewSession(
     } finally {
       setIsProcessing(false);
     }
-  }, [userId, buildSessionState, isProcessing]);
+  }, [userId, buildSessionState, isProcessing, invalidateStudyCaches]);
 
   // --- Resume from Waiting ---
   const resumeFromWaiting = useCallback(() => {

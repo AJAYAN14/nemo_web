@@ -123,6 +123,12 @@ export function StudySessionProvider({ userId, initialItems, config, mode, today
   const lockedDay = useMemo(() => studyService.getLearningDay(new Date(), config.resetHour || 4), [config.resetHour]);
   const lastRatingTime = useRef(0);
 
+  const invalidateStudyCaches = useCallback(() => {
+    queryClient.invalidateQueries({ queryKey: ['today-stats'] });
+    queryClient.invalidateQueries({ queryKey: ['due-items'] });
+    queryClient.invalidateQueries({ queryKey: ['review-session-items'] });
+  }, [queryClient]);
+
   const persist = useCallback((nextPool: StudyItem[], nextIndex: number, nextCompleted: number, nextWaiting: number | null) => {
     const steps = Object.fromEntries(nextPool.map((item) => [item.id, item.step ?? 0]));
     const dueTimes = Object.fromEntries(nextPool.map((item) => [item.id, item.dueTime ?? 0]));
@@ -246,9 +252,6 @@ export function StudySessionProvider({ userId, initialItems, config, mode, today
       if (nextPool.length === 0) {
         dispatch({ type: 'SET_STATUS', status: LearningStatus.SessionCompleted });
         sessionPersistence.clearSession('learn');
-        // Invalidate relevant queries to ensure dashboard sync
-        queryClient.invalidateQueries({ queryKey: ['due-items'] });
-        queryClient.invalidateQueries({ queryKey: ['today-stats'] });
       } else {
         const result = selectNext(nextPool, state.currentIndex);
         const nextIdx = result.type === 'NEXT' ? (result.index >= nextPool.length ? 0 : result.index) : state.currentIndex;
@@ -266,6 +269,8 @@ export function StudySessionProvider({ userId, initialItems, config, mode, today
         persist(nextPool, nextIdx, nextCompleted, nextWaiting);
         setShowUndoHint(true);
       }
+
+      invalidateStudyCaches();
     } catch (e: unknown) {
       console.error("[StudySession] Rate failed:", e);
       const errorMessage = e instanceof Error ? e.message : String(e);
@@ -282,7 +287,7 @@ export function StudySessionProvider({ userId, initialItems, config, mode, today
          dispatch({ type: 'SET_STATUS', status: LearningStatus.Learning });
       }
     }
-  }, [currentItem, state, config, userId, lockedDay, pushSnapshot, updateLatestRateSnapshot, selectNext, persist, dispatch, queryClient]);
+  }, [currentItem, state, config, userId, lockedDay, pushSnapshot, updateLatestRateSnapshot, selectNext, persist, dispatch, invalidateStudyCaches]);
 
   const undo = useCallback(async () => {
     if (!canUndo || state.status === LearningStatus.Processing) return;
@@ -299,6 +304,7 @@ export function StudySessionProvider({ userId, initialItems, config, mode, today
           waitingUntil: snapshot.waitingUntil
         });
         persist(snapshot.wordList, snapshot.currentIndex, snapshot.completedThisSession, snapshot.waitingUntil);
+        invalidateStudyCaches();
       }
     } catch (e: unknown) {
       const message = e instanceof Error ? e.message : '撤销失败，请重试';
@@ -309,7 +315,7 @@ export function StudySessionProvider({ userId, initialItems, config, mode, today
       }
       dispatch({ type: 'SET_STATUS', status: state.waitingUntil ? LearningStatus.Waiting : LearningStatus.Learning });
     }
-  }, [canUndo, state.status, state.waitingUntil, performUndo, lockedDay, persist, dispatch]);
+  }, [canUndo, state.status, state.waitingUntil, performUndo, lockedDay, persist, dispatch, invalidateStudyCaches]);
 
   const suspendCurrent = useCallback(async () => {
      if (!currentItem || state.status === LearningStatus.Processing) return;
@@ -331,10 +337,11 @@ export function StudySessionProvider({ userId, initialItems, config, mode, today
           
           persist(nextPool, nextIdx, state.completedThisSession, nextWaiting);
        }
+       invalidateStudyCaches();
      } catch {
        dispatch({ type: 'SET_STATUS', status: LearningStatus.Learning });
      }
-  }, [currentItem, state, selectNext, persist, dispatch]);
+  }, [currentItem, state, selectNext, persist, dispatch, invalidateStudyCaches]);
 
   const buryCurrent = useCallback(async () => {
      if (!currentItem || state.status === LearningStatus.Processing) return;
@@ -356,10 +363,11 @@ export function StudySessionProvider({ userId, initialItems, config, mode, today
           
           persist(nextPool, nextIdx, state.completedThisSession, nextWaiting);
        }
+       invalidateStudyCaches();
      } catch {
        dispatch({ type: 'SET_STATUS', status: LearningStatus.Learning });
      }
-  }, [currentItem, state, lockedDay, selectNext, persist, dispatch]);
+  }, [currentItem, state, lockedDay, selectNext, persist, dispatch, invalidateStudyCaches]);
 
   const value = {
     mode,
