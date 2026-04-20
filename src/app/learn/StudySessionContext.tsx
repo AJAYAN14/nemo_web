@@ -203,6 +203,7 @@ export function StudySessionProvider({ userId, initialItems, config, mode, sessi
     if (Date.now() - lastRatingTime.current < RATING_DEBOUNCE_MS) return;
     lastRatingTime.current = Date.now();
 
+    const actionRow = studyService.evaluateRatingAction(currentItem, rating, config);
     const isFirstReviewToday = !currentItem.progress.last_review || 
       studyService.getLearningDay(new Date(currentItem.progress.last_review), config.resetHour || 4) < lockedDay;
 
