@@ -150,7 +150,7 @@ describe('studyService.buryItem', () => {
     expect(rpcMock).toHaveBeenNthCalledWith(1, 'fn_undo_review_atomic_v2', expect.any(Object));
   });
 
-  it('does not increment study records on requeue (not graduated)', async () => {
+  it('increments learned bucket on requeue from initial learning states', async () => {
     const { studyService } = await import('@/lib/services/studyService');
 
     rpcMock.mockResolvedValueOnce({
@@ -200,9 +200,35 @@ describe('studyService.buryItem', () => {
 
     expect(rpcMock).toHaveBeenCalledWith('fn_process_review_atomic', expect.objectContaining({
       p_progress_id: 'progress-requeue-1',
-      p_study_field: null,
-      p_study_delta: 0
+      p_study_field: 'learned_words',
+      p_study_delta: 1
     }));
+  });
+
+  it('treats learning state answers as learned regardless of terminal action', async () => {
+    const { studyService } = await import('@/lib/services/studyService');
+
+    const field = studyService.getCompletionStudyDeltaField(
+      'word',
+      1,
+      8,
+      'graduate'
+    );
+
+    expect(field).toBe('learned_words');
+  });
+
+  it('treats relearning state answers as reviewed', async () => {
+    const { studyService } = await import('@/lib/services/studyService');
+
+    const field = studyService.getCompletionStudyDeltaField(
+      'word',
+      3,
+      1,
+      'requeue'
+    );
+
+    expect(field).toBe('reviewed_words');
   });
 
   it('rolls back stats using provided override field', async () => {

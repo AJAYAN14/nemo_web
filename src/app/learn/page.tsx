@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, Suspense } from "react";
+import React, { useEffect, useMemo, Suspense } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useRouter, useSearchParams } from "next/navigation";
 import { studyService } from "@/lib/services/studyService";
@@ -14,6 +14,8 @@ import { NemoButton } from "@/components/ui/NemoButton";
 import { settingsService } from "@/lib/services/settingsService";
 import { statisticsService } from "@/lib/services/statisticsService";
 import { studyQueryKeys } from "@/lib/services/studyQueryKeys";
+import { markModeSeededForDay, shouldSeedModeForDay } from "@/lib/services/studySeedGate";
+import { getLearnSessionKey } from "@/lib/services/studySessionKey";
 import { SakuraLoader } from "@/components/common/SakuraLoader";
 import { sessionPersistence } from "@/lib/services/sessionPersistence";
 
@@ -21,6 +23,7 @@ function LearnPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const type = searchParams.get('type') as ItemType | null;
+  const learnSessionKey = useMemo(() => getLearnSessionKey(type), [type]);
 
   // 1. Get current user
   const { data: user, isLoading: userLoading } = useQuery({
@@ -49,7 +52,7 @@ function LearnPageContent() {
 
       // Resume in-progress session first to keep queue stable on re-entry.
       // This avoids auto top-up seeding from expanding the queue mid-session.
-      const savedSession = sessionPersistence.loadSession('learn');
+      const savedSession = sessionPersistence.loadSession(learnSessionKey);
       if (savedSession?.ids?.length) {
         const savedSessionItems = await studyService.getSessionItemsByProgressIds(
           user.id,
@@ -72,15 +75,49 @@ function LearnPageContent() {
 
           return { items: mixedItems, config: studyConfig, todayStats };
         }
+
+        // Snapshot exists but cannot be restored anymore; discard it.
+        sessionPersistence.clearSession(learnSessionKey);
       }
 
       // WEB EXCELLENCE: Use the unified prepareSession which handles seeding and fetching in one session-safe flow.
-      const dueItems = await studyService.prepareSession(
-        dailyGoal,
-        grammarDailyGoal,
-        studyConfig.resetHour || 4,
+      const resetHour = studyConfig.resetHour || 4;
+      const epochDay = studyService.getLearningDay(new Date(), resetHour);
+
+      const shouldSeedWord = (!type || type === 'word')
+        && dailyGoal > 0
+        && shouldSeedModeForDay(user.id, 'word', epochDay);
+      const shouldSeedGrammar = (!type || type === 'grammar')
+        && grammarDailyGoal > 0
+        && shouldSeedModeForDay(user.id, 'grammar', epochDay);
+
+      if (shouldSeedWord || shouldSeedGrammar) {
+        await studyService.seedDailyNewItems(
+          user.id,
+          shouldSeedWord ? dailyGoal : 0,
+          shouldSeedGrammar ? grammarDailyGoal : 0,
+          resetHour,
+          {
+            wordLevel: studyConfig.wordLevel,
+            grammarLevel: studyConfig.grammarLevel,
+          },
+          studyConfig.isRandom ?? true,
+          epochDay
+        );
+
+        if (shouldSeedWord) {
+          markModeSeededForDay(user.id, 'word', epochDay);
+        }
+        if (shouldSeedGrammar) {
+          markModeSeededForDay(user.id, 'grammar', epochDay);
+        }
+      }
+
+      const dueItems = await studyService.getDueItems(
+        user.id,
+        50,
         type || undefined,
-        50
+        resetHour
       );
 
       // 3. Sandwich Mix: interleave new/learning items among mature reviews
@@ -158,6 +195,7 @@ function LearnPageContent() {
       initialItems={items}
       config={config!}
       mode={type || undefined}
+      sessionStorageKey={learnSessionKey}
       todayStats={todayStats}
     />
   );

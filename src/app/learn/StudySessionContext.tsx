@@ -63,14 +63,15 @@ interface StudySessionProviderProps {
   initialItems: StudyItem[];
   config: StudyConfig;
   mode: LearningMode;
+  sessionStorageKey: string;
   todayStats?: LearningStats;
   children: React.ReactNode;
 }
 
-export function StudySessionProvider({ userId, initialItems, config, mode, todayStats, children }: StudySessionProviderProps) {
+export function StudySessionProvider({ userId, initialItems, config, mode, sessionStorageKey, todayStats, children }: StudySessionProviderProps) {
   const queryClient = useQueryClient();
   // 1. Initial State Resolution (Restore from sessionStorage)
-  const savedSession = useMemo(() => sessionPersistence.loadSession('learn'), []);
+  const savedSession = useMemo(() => sessionPersistence.loadSession(sessionStorageKey), [sessionStorageKey]);
   const restoredPool = useMemo(() => {
     if (!savedSession || initialItems.length === 0) return null;
     const itemMap = new Map(initialItems.map((item) => [item.id, item]));
@@ -86,14 +87,7 @@ export function StudySessionProvider({ userId, initialItems, config, mode, today
         dueTime: Number.isFinite(dueTimes[item.id]) ? dueTimes[item.id] : item.dueTime
       }));
 
-    // Keep resume behavior, but append newly due items that were not in the
-    // saved snapshot so Home counters and Learn queue stay consistent.
-    const restoredIds = new Set(restored.map((item) => item.id));
-    const newlyDueItems = initialItems.filter((item) => !restoredIds.has(item.id));
-
-    const mergedPool = [...restored, ...newlyDueItems];
-
-    return mergedPool.length > 0 ? mergedPool : null;
+    return restored.length > 0 ? restored : null;
   }, [savedSession, initialItems]);
 
   const initialPool = restoredPool || initialItems;
@@ -132,7 +126,7 @@ export function StudySessionProvider({ userId, initialItems, config, mode, today
     const steps = Object.fromEntries(nextPool.map((item) => [item.id, item.step ?? 0]));
     const dueTimes = Object.fromEntries(nextPool.map((item) => [item.id, item.dueTime ?? 0]));
     
-    sessionPersistence.saveSession('learn', {
+    sessionPersistence.saveSession(sessionStorageKey, {
       version: 3,
       ids: nextPool.map((item) => item.id),
       currentIndex: nextIndex,
@@ -143,7 +137,14 @@ export function StudySessionProvider({ userId, initialItems, config, mode, today
       undoStack,
       savedAt: Date.now()
     });
-  }, [undoStack]);
+  }, [undoStack, sessionStorageKey]);
+
+  // Persist a fresh non-empty session immediately so Home and Learn read the
+  // same source-of-truth even before the first rating action.
+  useEffect(() => {
+    if (savedSession || initialPool.length === 0) return;
+    persist(initialPool, initialIndex, initialCompleted, initialWaiting);
+  }, [savedSession, initialPool, initialIndex, initialCompleted, initialWaiting, persist]);
 
   const selectNext = useCallback((pool: StudyItem[], preferredIdx: number) => {
     return selectNextQueueItem({
@@ -196,6 +197,7 @@ export function StudySessionProvider({ userId, initialItems, config, mode, today
     const statsField = studyService.getCompletionStudyDeltaField(
       currentItem.type,
       currentItem.progress.state,
+      currentItem.progress.reps,
       actionRow.type
     );
     const requestId =
@@ -250,7 +252,7 @@ export function StudySessionProvider({ userId, initialItems, config, mode, today
 
       if (nextPool.length === 0) {
         dispatch({ type: 'SET_STATUS', status: LearningStatus.SessionCompleted });
-        sessionPersistence.clearSession('learn');
+        sessionPersistence.clearSession(sessionStorageKey);
       } else {
         const result = selectNext(nextPool, state.currentIndex);
         const nextIdx = result.type === 'NEXT' ? (result.index >= nextPool.length ? 0 : result.index) : state.currentIndex;
@@ -286,7 +288,7 @@ export function StudySessionProvider({ userId, initialItems, config, mode, today
          dispatch({ type: 'SET_STATUS', status: LearningStatus.Learning });
       }
     }
-  }, [currentItem, state, config, userId, lockedDay, pushSnapshot, updateLatestRateSnapshot, selectNext, persist, dispatch, invalidateStudyCaches]);
+  }, [currentItem, state, config, userId, lockedDay, pushSnapshot, updateLatestRateSnapshot, selectNext, persist, dispatch, invalidateStudyCaches, sessionStorageKey]);
 
   const undo = useCallback(async () => {
     if (!canUndo || state.status === LearningStatus.Processing) return;
@@ -324,7 +326,7 @@ export function StudySessionProvider({ userId, initialItems, config, mode, today
        const nextPool = state.wordList.filter(i => i.id !== currentItem.id);
        if (nextPool.length === 0) {
           dispatch({ type: 'SET_STATUS', status: LearningStatus.SessionCompleted });
-          sessionPersistence.clearSession('learn');
+         sessionPersistence.clearSession(sessionStorageKey);
        } else {
           const result = selectNext(nextPool, state.currentIndex);
           const nextIdx = result.type === 'NEXT' ? (result.index >= nextPool.length ? 0 : result.index) : state.currentIndex;
@@ -340,7 +342,7 @@ export function StudySessionProvider({ userId, initialItems, config, mode, today
      } catch {
        dispatch({ type: 'SET_STATUS', status: LearningStatus.Learning });
      }
-  }, [currentItem, state, selectNext, persist, dispatch, invalidateStudyCaches]);
+  }, [currentItem, state, selectNext, persist, dispatch, invalidateStudyCaches, sessionStorageKey]);
 
   const buryCurrent = useCallback(async () => {
      if (!currentItem || state.status === LearningStatus.Processing) return;
@@ -350,7 +352,7 @@ export function StudySessionProvider({ userId, initialItems, config, mode, today
        const nextPool = state.wordList.filter(i => i.id !== currentItem.id);
        if (nextPool.length === 0) {
           dispatch({ type: 'SET_STATUS', status: LearningStatus.SessionCompleted });
-          sessionPersistence.clearSession('learn');
+         sessionPersistence.clearSession(sessionStorageKey);
        } else {
           const result = selectNext(nextPool, state.currentIndex);
           const nextIdx = result.type === 'NEXT' ? (result.index >= nextPool.length ? 0 : result.index) : state.currentIndex;
@@ -366,7 +368,7 @@ export function StudySessionProvider({ userId, initialItems, config, mode, today
      } catch {
        dispatch({ type: 'SET_STATUS', status: LearningStatus.Learning });
      }
-  }, [currentItem, state, lockedDay, selectNext, persist, dispatch, invalidateStudyCaches]);
+  }, [currentItem, state, lockedDay, selectNext, persist, dispatch, invalidateStudyCaches, sessionStorageKey]);
 
   const value = {
     mode,

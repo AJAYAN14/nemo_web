@@ -25,21 +25,25 @@ type StudyDeltaField = 'learned_words' | 'learned_grammars' | 'reviewed_words' |
 function getCompletionStudyDeltaField(
   itemType: ItemType,
   stateBeforeAnswer: number,
+  repsBeforeAnswer: number,
   actionType: RatingAction['type']
 ): StudyDeltaField | null {
-  // Progress ring semantics: only completed cards (graduate/leech) count towards any activity tally.
-  if (actionType !== 'graduate' && actionType !== 'leech') {
+  void repsBeforeAnswer;
+  void actionType;
+
+  // Align with Anki studied-today semantics: every answer contributes once,
+  // bucketed by the pre-answer queue family (learning vs review-like).
+  const isLearningLike = stateBeforeAnswer === 0 || stateBeforeAnswer === 1;
+  const isReviewLike = stateBeforeAnswer === 2 || stateBeforeAnswer === 3;
+
+  if (!isLearningLike && !isReviewLike) {
     return null;
   }
 
-  // ALIGNMENT: 'Learned' strictly means the word is entering the learning system (Leaving State 0).
-  // Any further steps (State 1, 3) or mature tests (State 2) are counted as "Reviews" for activity logs.
-  const isInitialLearning = stateBeforeAnswer === 0;
-
   if (itemType === 'word') {
-    return isInitialLearning ? 'learned_words' : 'reviewed_words';
+    return isLearningLike ? 'learned_words' : 'reviewed_words';
   }
-  return isInitialLearning ? 'learned_grammars' : 'reviewed_grammars';
+  return isLearningLike ? 'learned_grammars' : 'reviewed_grammars';
 }
 
 async function resolveStudyItemsFromProgress(progressList: UserProgress[], sourceTag: string): Promise<StudyItem[]> {
@@ -91,9 +95,10 @@ export const studyService = {
   getCompletionStudyDeltaField(
     itemType: ItemType,
     stateBeforeAnswer: number,
+    repsBeforeAnswer: number,
     actionType: RatingAction['type']
   ): StudyDeltaField | null {
-    return getCompletionStudyDeltaField(itemType, stateBeforeAnswer, actionType);
+    return getCompletionStudyDeltaField(itemType, stateBeforeAnswer, repsBeforeAnswer, actionType);
   },
 
   async applyStudyRecordDelta(
@@ -426,7 +431,7 @@ export const studyService = {
       updateData = ratingProcessor.buildRequeueUpdate(progress, rating, action, now, config.resetHour || 4);
     }
 
-    const studyField = getCompletionStudyDeltaField(item.type, progress.state, action.type);
+    const studyField = getCompletionStudyDeltaField(item.type, progress.state, progress.reps, action.type);
 
     const requestId = requestIdOverride ?? (
       typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'

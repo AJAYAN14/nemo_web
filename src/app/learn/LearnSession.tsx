@@ -20,6 +20,7 @@ interface LearnSessionProps {
   initialItems: StudyItem[];
   config: StudyConfig;
   mode?: ItemType;
+  sessionStorageKey: string;
   todayStats?: LearningStats;
 }
 
@@ -227,6 +228,7 @@ export function LearnSession(props: LearnSessionProps) {
       initialItems={props.initialItems} 
       config={props.config} 
       mode={currentMode}
+      sessionStorageKey={props.sessionStorageKey}
       todayStats={props.todayStats}
     >
       <LearnSessionUI todayStats={props.todayStats} />

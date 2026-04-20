@@ -231,6 +231,7 @@ export function useReviewSession(
     const statsField = studyService.getCompletionStudyDeltaField(
       currentItem.type,
       currentItem.progress.state,
+      currentItem.progress.reps,
       actionRow.type
     );
     const requestId =

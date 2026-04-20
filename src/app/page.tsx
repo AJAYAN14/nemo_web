@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState, useMemo } from "react";
+import React, { useEffect, useState, useMemo, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { useUser } from "@/hooks/useUser";
@@ -21,6 +21,7 @@ import { settingsService } from "@/lib/services/settingsService";
 import { studyService } from "@/lib/services/studyService";
 import { studyQueryKeys } from "@/lib/services/studyQueryKeys";
 import { getSessionDueCounts } from "@/lib/services/studySessionDueCounts";
+import { getLearnSessionKey } from "@/lib/services/studySessionKey";
 import { sessionPersistence } from "@/lib/services/sessionPersistence";
 import { MemoryPanorama } from "@/components/statistics/MemoryPanorama";
 import { StudyConfig } from "@/types/study";
@@ -41,6 +42,22 @@ export default function Home() {
 
   const [greeting, setGreeting] = useState("");
   const [currentDate, setCurrentDate] = useState("");
+  const isWordMode = mode === 'word';
+
+  const getActiveLearnSessions = useCallback(() => {
+    const wordSession = sessionPersistence.loadSession(getLearnSessionKey('word'));
+    const grammarSession = sessionPersistence.loadSession(getLearnSessionKey('grammar'));
+    const hasWordSession = !!wordSession?.ids?.length;
+    const hasGrammarSession = !!grammarSession?.ids?.length;
+
+    return {
+      wordSession,
+      grammarSession,
+      hasWordSession,
+      hasGrammarSession,
+      hasAnyActiveSession: hasWordSession || hasGrammarSession
+    };
+  }, []);
 
   useEffect(() => {
     const hour = new Date().getHours();
@@ -70,23 +87,9 @@ export default function Home() {
       const epochDay = statisticsService.getLearningDay(new Date(), config.resetHour || 4);
       console.log("[Dashboard] Syncing overview for Epoch Day:", epochDay);
 
-      const savedSession = sessionPersistence.loadSession('learn');
-      const hasActiveLearnSession = !!savedSession?.ids?.length;
-
-      if (!hasActiveLearnSession) {
-        await studyService.seedDailyNewItems(
-          user.id,
-          config.dailyGoal || 20,
-          config.grammarDailyGoal || 5,
-          config.resetHour || 4,
-          {
-            wordLevel: config.wordLevel || 'ALL',
-            grammarLevel: config.grammarLevel || 'ALL'
-          },
-          config.isRandom ?? true,
-          epochDay
-        );
-      }
+      const sessions = getActiveLearnSessions();
+      const savedSession = isWordMode ? sessions.wordSession : sessions.grammarSession;
+      const hasActiveLearnSession = sessions.hasAnyActiveSession;
 
       const baseStats = await statisticsService.getTodayStats(user.id, config.resetHour || 4);
 
@@ -123,8 +126,6 @@ export default function Home() {
     queryFn: () => statisticsService.getMemoryPanorama(user!.id),
     enabled: !!user,
   });
-
-  const isWordMode = mode === 'word';
 
   // Simplified Task Calculation (Strictly Level Bound)
   const hasTasks = useMemo(() => {
@@ -255,7 +256,7 @@ export default function Home() {
               {/* Dual Progress Card */}
               <div className={styles.statCard}>
                 <div className={styles.statCardHeader}>
-                  <p className={styles.statCardTitle}>{isWordMode ? '词汇' : '语法'} · 今日进度</p>
+                  <p className={styles.statCardTitle}>{isWordMode ? '词汇' : '语法'} · 今日作答</p>
                   <div className={styles.statCardIconBadge}>
                     <Flame size={18} color="#6366f1" />
                   </div>
@@ -275,7 +276,7 @@ export default function Home() {
                         </div>
                       </ModernCircularProgress>
                     </div>
-                    <span className={styles.progressLabel}>新词引入</span>
+                    <span className={styles.progressLabel}>{isWordMode ? '学习作答占目标' : '语法作答占目标'}</span>
                   </div>
 
                   <div className={styles.progressItem}>
@@ -292,7 +293,7 @@ export default function Home() {
                         </div>
                       </ModernCircularProgress>
                     </div>
-                    <span className={styles.progressLabel}>任务清空率</span>
+                    <span className={styles.progressLabel}>今日作答占比</span>
                   </div>
                 </div>
               </div>
