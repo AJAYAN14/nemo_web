@@ -24,6 +24,7 @@ import { motion } from "framer-motion";
 import { supabase } from "@/lib/supabase";
 import { statisticsService } from "@/lib/services/statisticsService";
 import { settingsService } from "@/lib/services/settingsService";
+import { studyQueryKeys } from "@/lib/services/studyQueryKeys";
 import { useUser } from "@/hooks/useUser";
 import { SakuraLoader } from "@/components/common/SakuraLoader";
 import { SettingsCard, SquircleSettingItem } from "@/components/ui/SettingsComponents";
@@ -63,13 +64,15 @@ export default function ProgressPage() {
 
   const { user, isLoading: userLoading } = useUser();
 
-  const { data, isLoading: dataLoading, error, refetch } = useQuery({
-    queryKey: ["progress-summary", user?.id],
+  const { data, isLoading: dataLoading, error, refetch, isFetching } = useQuery({
+    queryKey: studyQueryKeys.progressSummary(user?.id),
     queryFn: async () => {
       // 仅保留核心的 Dashboard Summary，移除之前 AI 乱加的 panorama
       return await statisticsService.getDashboardSummary(user!.id);
     },
     enabled: !!user,
+    refetchOnWindowFocus: true,
+    staleTime: 1000 * 30, // 30秒过期，保证适度的交互刷新
   });
 
   const loading = userLoading || dataLoading;
